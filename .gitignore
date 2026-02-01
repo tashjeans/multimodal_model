@@ -1,0 +1,84 @@
+# === Python ===
+__pycache__/
+*.py[cod]
+*.so
+
+# === Jupyter ===
+.ipynb_checkpoints/
+
+# === Virtual Environments ===
+env/
+venv/
+*.egg-info/
+
+# === Data Files ===
+data/raw/
+data/processed/
+*.csv
+*.tsv
+*.json
+*.yaml
+*.fasta
+*.pkl
+*.npz
+*.h5
+*.hdf5
+
+# === Models and Checkpoints ===
+models/
+*.pt
+*.pth
+*.ckpt
+
+# === Logs and Outputs ===
+*.log
+*.out
+*.err
+wandb/
+logs/
+checkpoints/
+
+# === VS Code or PyCharm ===
+.vscode/
+.idea/
+
+# === Conda and Pip Environments ===
+.env
+.env.*
+*.conda
+*.yml
+
+# === Misc ===
+.DS_Store
+
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+.env
+
+# Conda
+conda-env/
+*.lock
+
+# Data / embeddings / outputs
+data/
+embeddings/
+boltz_outputs/
+outputs/
+*.pt
+*.pth
+*.ckpt
+*.npy
+*.npz
+*.h5
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store

@@ -1,0 +1,10 @@
+Molecular Structure Color Coding: Native PDB vs Boltz Prediction
+================================================================================
+
+Chain  Native       Boltz        Native Description        Boltz Description        
+--------------------------------------------------------------------------------
+A      forest       lime         Main TCR α chain          Predicted TCR α chain    
+B      cyan         yellow       Main TCR β chain          Predicted TCR β chain    
+C      blue         grey         Short peptide             Predicted peptide        
+D      green        orange       HLA-A*11:01 α chain       Predicted HLA α chain    
+E      purple       pink         HLA-A*11:01 β2m           Predicted HLA β2m        
