@@ -1,0 +1,546 @@
+(base) natasha@natasha-System-Product-Name:~/multimodal_model$ conda activate tcr-multimodal
+(tcr-multimodal) natasha@natasha-System-Product-Name:~/multimodal_model$ cd /home/natasha/multimodal_model/scripts/train
+(tcr-multimodal) natasha@natasha-System-Product-Name:~/multimodal_model/scripts/train$ python hpo_baseline_hamiltonian.py 2>&
+1 | tee hpo_baseline_hamiltonian.log
+/home/natasha/miniconda3/envs/tcr-multimodal/lib/python3.10/site-packages/torch/cuda/__init__.py:63: FutureWarning: The pynvm
+l package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to t
+he maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+2026-04-05 18:37:24 | Peptide lookups: train=31154, val=3944, test=4182
+2026-04-05 18:37:24 | Device: cuda
+2026-04-05 18:37:24 | GPU: NVIDIA GeForce RTX 4070 Ti SUPER
+2026-04-05 18:37:36 | Loaders: train=3895, val=493, test=523
+2026-04-05 18:37:36 |
+===== Config 1/4: {'rL': 8, 'rD': 16, 'lr': 0.0001, 'wd': 0.01, 'alpha': 1.0, 'beta': 25.0} =====
+2026-04-05 18:52:01 |   [cfg0] ep1/30 tl=4.9574 vl=16.8534 auroc=0.3831 auprc=0.4036 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-05 18:52:02 |   [cross-react] same_pep n=1684 med=0.7211 | random n=1944 med=0.7250
+2026-04-05 18:52:02 |   -> New best AUROC=0.3831 ep1, saved
+2026-04-05 19:07:35 |   [cfg0] ep2/30 tl=1.9499 vl=17.2916 auroc=0.6184 auprc=0.7073 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-05 19:07:35 |   [cross-react] same_pep n=1684 med=0.6011 | random n=1944 med=0.6265
+2026-04-05 19:07:35 |   -> New best AUROC=0.6184 ep2, saved
+2026-04-05 19:23:24 |   [cfg0] ep3/30 tl=1.5908 vl=16.7092 auroc=0.6027 auprc=0.6398 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-05 19:23:24 |   [cross-react] same_pep n=1684 med=0.5081 | random n=1944 med=0.5481
+2026-04-05 19:39:01 |   [cfg0] ep4/30 tl=1.3566 vl=16.5309 auroc=0.3977 auprc=0.4765 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-05 19:39:02 |   [cross-react] same_pep n=1684 med=0.4348 | random n=1944 med=0.4400
+2026-04-05 19:55:09 |   [cfg0] ep5/30 tl=1.1623 vl=15.8518 auroc=0.2827 auprc=0.3705 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-05 19:55:09 |   [cross-react] same_pep n=1684 med=0.3965 | random n=1944 med=0.4036
+2026-04-05 20:11:10 |   [cfg0] ep6/30 tl=1.0260 vl=17.0789 auroc=0.3895 auprc=0.4856 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-05 20:11:10 |   [cross-react] same_pep n=1684 med=0.2730 | random n=1944 med=0.2781
+2026-04-05 20:27:25 |   [cfg0] ep7/30 tl=0.9087 vl=15.3030 auroc=0.3039 auprc=0.3886 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-05 20:27:25 |   [cross-react] same_pep n=1684 med=0.2707 | random n=1944 med=0.2729
+2026-04-05 20:43:46 |   [cfg0] ep8/30 tl=0.8081 vl=15.9427 auroc=0.2233 auprc=0.3480 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-05 20:43:46 |   [cross-react] same_pep n=1684 med=0.2171 | random n=1944 med=0.2164
+2026-04-05 21:00:16 |   [cfg0] ep9/30 tl=0.7278 vl=15.3104 auroc=0.4026 auprc=0.5034 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-05 21:00:16 |   [cross-react] same_pep n=1684 med=0.1717 | random n=1944 med=0.1765
+2026-04-05 21:16:47 |   [cfg0] ep10/30 tl=0.6875 vl=16.0721 auroc=0.1956 auprc=0.3387 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-05 21:16:47 |   [cross-react] same_pep n=1684 med=0.1682 | random n=1944 med=0.1665
+2026-04-05 21:33:04 |   [cfg0] ep11/30 tl=0.6424 vl=15.8260 auroc=0.3224 auprc=0.3918 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-05 21:33:05 |   [cross-react] same_pep n=1684 med=0.1113 | random n=1944 med=0.1124
+2026-04-05 21:46:13 |   [cfg0] ep12/30 tl=0.6020 vl=15.3974 auroc=0.2943 auprc=0.3741 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-05 21:46:13 |   [cross-react] same_pep n=1684 med=0.1046 | random n=1944 med=0.1067
+2026-04-05 21:46:13 |   Early stop at ep12 (patience=10)
+2026-04-05 21:46:16 | Config 1 best AUROC: 0.6184 at epoch 2
+2026-04-05 21:46:16 |
+===== Config 2/4: {'rL': 8, 'rD': 16, 'lr': 0.0003, 'wd': 0.01, 'alpha': 1.0, 'beta': 25.0} =====
+2026-04-05 21:56:53 |   [cfg1] ep1/30 tl=2.8903 vl=14.8113 auroc=0.3953 auprc=0.4496 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-05 21:56:53 |   [cross-react] same_pep n=1684 med=0.5555 | random n=1944 med=0.5573
+2026-04-05 21:56:53 |   -> New best AUROC=0.3953 ep1, saved
+2026-04-05 22:07:34 |   [cfg1] ep2/30 tl=1.3096 vl=14.5928 auroc=0.5273 auprc=0.6001 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-05 22:07:34 |   [cross-react] same_pep n=1684 med=0.3171 | random n=1944 med=0.3298
+2026-04-05 22:07:34 |   -> New best AUROC=0.5273 ep2, saved
+2026-04-05 22:18:19 |   [cfg1] ep3/30 tl=0.9450 vl=15.5678 auroc=0.3856 auprc=0.4923 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-05 22:18:19 |   [cross-react] same_pep n=1684 med=0.1957 | random n=1944 med=0.2016
+2026-04-05 22:29:06 |   [cfg1] ep4/30 tl=0.7648 vl=15.2472 auroc=0.2753 auprc=0.3706 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-05 22:29:06 |   [cross-react] same_pep n=1684 med=0.1369 | random n=1944 med=0.1369
+2026-04-05 22:39:53 |   [cfg1] ep5/30 tl=0.6912 vl=16.0471 auroc=0.4357 auprc=0.5298 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-05 22:39:54 |   [cross-react] same_pep n=1684 med=0.0695 | random n=1944 med=0.0717
+2026-04-05 22:50:43 |   [cfg1] ep6/30 tl=0.6027 vl=11.4434 auroc=0.5662 auprc=0.6492 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-05 22:50:43 |   [cross-react] same_pep n=1684 med=0.0813 | random n=1944 med=0.0918
+2026-04-05 22:50:43 |   -> New best AUROC=0.5662 ep6, saved
+2026-04-05 23:01:33 |   [cfg1] ep7/30 tl=0.5347 vl=12.0664 auroc=0.6332 auprc=0.6998 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-05 23:01:34 |   [cross-react] same_pep n=1684 med=0.0551 | random n=1944 med=0.0609
+2026-04-05 23:01:34 |   -> New best AUROC=0.6332 ep7, saved
+2026-04-05 23:12:25 |   [cfg1] ep8/30 tl=0.5007 vl=11.8402 auroc=0.4790 auprc=0.4715 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-05 23:12:26 |   [cross-react] same_pep n=1684 med=0.0349 | random n=1944 med=0.0354
+2026-04-05 23:23:21 |   [cfg1] ep9/30 tl=0.4824 vl=11.5387 auroc=0.7271 auprc=0.7888 f1=0.6782
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-05 23:23:21 |   [cross-react] same_pep n=1684 med=0.1892 | random n=1944 med=0.1965
+2026-04-05 23:23:21 |   -> New best AUROC=0.7271 ep9, saved
+2026-04-05 23:34:13 |   [cfg1] ep10/30 tl=0.4555 vl=13.0816 auroc=0.5877 auprc=0.5722 f1=0.6612
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-05 23:34:13 |   [cross-react] same_pep n=1684 med=0.0207 | random n=1944 med=0.0220
+2026-04-05 23:45:01 |   [cfg1] ep11/30 tl=0.4263 vl=13.2893 auroc=0.6025 auprc=0.6624 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-05 23:45:01 |   [cross-react] same_pep n=1684 med=0.0185 | random n=1944 med=0.0203
+2026-04-05 23:55:46 |   [cfg1] ep12/30 tl=0.4139 vl=14.7522 auroc=0.3319 auprc=0.3972 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-05 23:55:46 |   [cross-react] same_pep n=1684 med=0.0140 | random n=1944 med=0.0140
+2026-04-06 00:06:49 |   [cfg1] ep13/30 tl=0.4142 vl=14.5752 auroc=0.5532 auprc=0.5525 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 00:06:50 |   [cross-react] same_pep n=1684 med=0.0111 | random n=1944 med=0.0115
+2026-04-06 00:17:45 |   [cfg1] ep14/30 tl=0.3956 vl=13.9823 auroc=0.4810 auprc=0.4833 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 00:17:46 |   [cross-react] same_pep n=1684 med=0.0103 | random n=1944 med=0.0107
+2026-04-06 00:28:37 |   [cfg1] ep15/30 tl=0.4450 vl=14.9130 auroc=0.4930 auprc=0.5561 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 00:28:38 |   [cross-react] same_pep n=1684 med=0.0091 | random n=1944 med=0.0097
+2026-04-06 00:39:38 |   [cfg1] ep16/30 tl=0.4757 vl=14.6964 auroc=0.6139 auprc=0.6526 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 00:39:38 |   [cross-react] same_pep n=1684 med=0.0091 | random n=1944 med=0.0098
+2026-04-06 00:50:38 |   [cfg1] ep17/30 tl=0.4661 vl=14.0320 auroc=0.4673 auprc=0.5116 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 00:50:38 |   [cross-react] same_pep n=1684 med=0.0087 | random n=1944 med=0.0093
+2026-04-06 01:01:43 |   [cfg1] ep18/30 tl=0.4444 vl=14.0470 auroc=0.7708 auprc=0.8120 f1=0.7066
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 01:01:43 |   [cross-react] same_pep n=1684 med=0.0131 | random n=1944 med=0.0139
+2026-04-06 01:01:43 |   -> New best AUROC=0.7708 ep18, saved
+2026-04-06 01:12:46 |   [cfg1] ep19/30 tl=0.4467 vl=14.5444 auroc=0.5776 auprc=0.6129 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 01:12:46 |   [cross-react] same_pep n=1684 med=0.0074 | random n=1944 med=0.0079
+2026-04-06 01:23:49 |   [cfg1] ep20/30 tl=0.4072 vl=15.4388 auroc=0.5547 auprc=0.5766 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 01:23:49 |   [cross-react] same_pep n=1684 med=0.0063 | random n=1944 med=0.0068
+2026-04-06 01:34:52 |   [cfg1] ep21/30 tl=0.3977 vl=15.8138 auroc=0.6150 auprc=0.6535 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 01:34:52 |   [cross-react] same_pep n=1684 med=0.0063 | random n=1944 med=0.0069
+2026-04-06 01:45:52 |   [cfg1] ep22/30 tl=0.3685 vl=14.8781 auroc=0.5285 auprc=0.5131 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 01:45:52 |   [cross-react] same_pep n=1684 med=0.0058 | random n=1944 med=0.0061
+2026-04-06 01:56:56 |   [cfg1] ep23/30 tl=0.3538 vl=17.1350 auroc=0.5355 auprc=0.5686 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 01:56:56 |   [cross-react] same_pep n=1684 med=0.0053 | random n=1944 med=0.0056
+2026-04-06 02:07:53 |   [cfg1] ep24/30 tl=0.3656 vl=15.4840 auroc=0.5521 auprc=0.5918 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 02:07:53 |   [cross-react] same_pep n=1684 med=0.0059 | random n=1944 med=0.0062
+2026-04-06 02:18:52 |   [cfg1] ep25/30 tl=0.3528 vl=16.0478 auroc=0.5236 auprc=0.5688 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 02:18:52 |   [cross-react] same_pep n=1684 med=0.0056 | random n=1944 med=0.0060
+2026-04-06 02:29:53 |   [cfg1] ep26/30 tl=0.3365 vl=16.0643 auroc=0.5405 auprc=0.5688 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 02:29:53 |   [cross-react] same_pep n=1684 med=0.0054 | random n=1944 med=0.0056
+2026-04-06 02:40:56 |   [cfg1] ep27/30 tl=0.3310 vl=15.5982 auroc=0.5497 auprc=0.5979 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 02:40:56 |   [cross-react] same_pep n=1684 med=0.0061 | random n=1944 med=0.0064
+2026-04-06 02:52:00 |   [cfg1] ep28/30 tl=0.3320 vl=20.3655 auroc=0.4505 auprc=0.5287 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 02:52:01 |   [cross-react] same_pep n=1684 med=0.0047 | random n=1944 med=0.0051
+2026-04-06 02:52:01 |   Early stop at ep28 (patience=10)
+2026-04-06 02:52:04 | Config 2 best AUROC: 0.7708 at epoch 18
+2026-04-06 02:52:04 |
+===== Config 3/4: {'rL': 4, 'rD': 8, 'lr': 0.0001, 'wd': 0.01, 'alpha': 1.0, 'beta': 25.0} =====
+2026-04-06 03:03:13 |   [cfg2] ep1/30 tl=5.0465 vl=16.0381 auroc=0.6821 auprc=0.7332 f1=0.6634
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 03:03:14 |   [cross-react] same_pep n=1684 med=0.8185 | random n=1944 med=0.8360
+2026-04-06 03:03:14 |   -> New best AUROC=0.6821 ep1, saved
+2026-04-06 03:14:17 |   [cfg2] ep2/30 tl=1.9679 vl=14.7343 auroc=0.7241 auprc=0.7792 f1=0.6796
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 03:14:17 |   [cross-react] same_pep n=1684 med=0.8337 | random n=1944 med=0.8516
+2026-04-06 03:14:17 |   -> New best AUROC=0.7241 ep2, saved
+2026-04-06 03:25:29 |   [cfg2] ep3/30 tl=1.5561 vl=14.1842 auroc=0.7790 auprc=0.8077 f1=0.7201
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 03:25:29 |   [cross-react] same_pep n=1684 med=0.6965 | random n=1944 med=0.7161
+2026-04-06 03:25:29 |   -> New best AUROC=0.7790 ep3, saved
+2026-04-06 03:36:31 |   [cfg2] ep4/30 tl=1.2974 vl=12.8970 auroc=0.6983 auprc=0.7245 f1=0.6849
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 03:36:31 |   [cross-react] same_pep n=1684 med=0.4809 | random n=1944 med=0.5096
+2026-04-06 03:47:33 |   [cfg2] ep5/30 tl=1.1365 vl=14.8650 auroc=0.7399 auprc=0.7654 f1=0.6919
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 03:47:34 |   [cross-react] same_pep n=1684 med=0.6221 | random n=1944 med=0.6467
+2026-04-06 03:58:34 |   [cfg2] ep6/30 tl=0.9836 vl=14.5412 auroc=0.6526 auprc=0.6708 f1=0.6692
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 03:58:34 |   [cross-react] same_pep n=1684 med=0.3074 | random n=1944 med=0.3301
+2026-04-06 04:09:39 |   [cfg2] ep7/30 tl=0.8507 vl=14.2304 auroc=0.3467 auprc=0.3884 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 04:09:39 |   [cross-react] same_pep n=1684 med=0.5824 | random n=1944 med=0.5811
+2026-04-06 04:20:49 |   [cfg2] ep8/30 tl=0.7601 vl=13.9623 auroc=0.5398 auprc=0.5448 f1=0.6606
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 04:20:49 |   [cross-react] same_pep n=1684 med=0.2278 | random n=1944 med=0.2345
+2026-04-06 04:31:57 |   [cfg2] ep9/30 tl=0.6914 vl=14.3469 auroc=0.3310 auprc=0.4070 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 04:31:57 |   [cross-react] same_pep n=1684 med=0.2134 | random n=1944 med=0.2153
+2026-04-06 04:43:04 |   [cfg2] ep10/30 tl=0.6711 vl=13.7128 auroc=0.3385 auprc=0.3953 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 04:43:04 |   [cross-react] same_pep n=1684 med=0.1679 | random n=1944 med=0.1697
+2026-04-06 04:54:08 |   [cfg2] ep11/30 tl=0.5818 vl=15.2750 auroc=0.5158 auprc=0.5658 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 04:54:08 |   [cross-react] same_pep n=1684 med=0.1285 | random n=1944 med=0.1351
+2026-04-06 05:05:17 |   [cfg2] ep12/30 tl=0.5419 vl=13.9720 auroc=0.5085 auprc=0.5635 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 05:05:17 |   [cross-react] same_pep n=1684 med=0.1238 | random n=1944 med=0.1280
+2026-04-06 05:16:30 |   [cfg2] ep13/30 tl=0.5144 vl=14.5933 auroc=0.6188 auprc=0.6609 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 05:16:30 |   [cross-react] same_pep n=1684 med=0.1142 | random n=1944 med=0.1216
+2026-04-06 05:16:30 |   Early stop at ep13 (patience=10)
+2026-04-06 05:16:34 | Config 3 best AUROC: 0.7790 at epoch 3
+2026-04-06 05:16:34 |
+===== Config 4/4: {'rL': 8, 'rD': 16, 'lr': 0.0001, 'wd': 0.001, 'alpha': 1.0, 'beta': 10.0} =====
+2026-04-06 05:27:42 |   [cfg3] ep1/30 tl=2.1527 vl=6.1512 auroc=0.6436 auprc=0.6431 f1=0.6624
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 05:27:43 |   [cross-react] same_pep n=1684 med=0.4019 | random n=1944 med=0.4181
+2026-04-06 05:27:43 |   -> New best AUROC=0.6436 ep1, saved
+2026-04-06 05:38:55 |   [cfg3] ep2/30 tl=0.8591 vl=6.3232 auroc=0.5840 auprc=0.6212 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 05:38:56 |   [cross-react] same_pep n=1684 med=0.4932 | random n=1944 med=0.4953
+2026-04-06 05:50:03 |   [cfg3] ep3/30 tl=0.6391 vl=5.7578 auroc=0.3944 auprc=0.4512 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 05:50:03 |   [cross-react] same_pep n=1684 med=0.2890 | random n=1944 med=0.2920
+2026-04-06 06:01:10 |   [cfg3] ep4/30 tl=0.5036 vl=6.1714 auroc=0.3777 auprc=0.4296 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 06:01:10 |   [cross-react] same_pep n=1684 med=0.2904 | random n=1944 med=0.2895
+2026-04-06 06:12:17 |   [cfg3] ep5/30 tl=0.3796 vl=5.8294 auroc=0.6640 auprc=0.7169 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 06:12:17 |   [cross-react] same_pep n=1684 med=0.2393 | random n=1944 med=0.2521
+2026-04-06 06:12:17 |   -> New best AUROC=0.6640 ep5, saved
+2026-04-06 06:23:35 |   [cfg3] ep6/30 tl=0.2620 vl=6.4255 auroc=0.7408 auprc=0.8030 f1=0.6850
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 06:23:35 |   [cross-react] same_pep n=1684 med=0.2603 | random n=1944 med=0.2670
+2026-04-06 06:23:35 |   -> New best AUROC=0.7408 ep6, saved
+2026-04-06 06:33:37 |   [cfg3] ep7/30 tl=0.1775 vl=6.0826 auroc=0.4583 auprc=0.4472 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 06:33:37 |   [cross-react] same_pep n=1684 med=0.1731 | random n=1944 med=0.1782
+2026-04-06 06:42:41 |   [cfg3] ep8/30 tl=0.1142 vl=6.0421 auroc=0.7802 auprc=0.8356 f1=0.7152
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 06:42:42 |   [cross-react] same_pep n=1684 med=0.4068 | random n=1944 med=0.4154
+2026-04-06 06:42:42 |   -> New best AUROC=0.7802 ep8, saved
+2026-04-06 06:51:44 |   [cfg3] ep9/30 tl=0.0631 vl=6.0207 auroc=0.7505 auprc=0.7985 f1=0.7001
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 06:51:45 |   [cross-react] same_pep n=1684 med=0.2296 | random n=1944 med=0.2419
+2026-04-06 07:00:50 |   [cfg3] ep10/30 tl=0.0146 vl=5.3352 auroc=0.6239 auprc=0.6495 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 07:00:50 |   [cross-react] same_pep n=1684 med=0.1270 | random n=1944 med=0.1312
+2026-04-06 07:09:51 |   [cfg3] ep11/30 tl=-0.0195 vl=5.5654 auroc=0.6817 auprc=0.7060 f1=0.6899
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 07:09:52 |   [cross-react] same_pep n=1684 med=0.1385 | random n=1944 med=0.1450
+2026-04-06 07:18:59 |   [cfg3] ep12/30 tl=-0.0450 vl=5.4341 auroc=0.6011 auprc=0.5927 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 07:19:00 |   [cross-react] same_pep n=1684 med=0.1126 | random n=1944 med=0.1174
+2026-04-06 07:28:07 |   [cfg3] ep13/30 tl=-0.0754 vl=5.4288 auroc=0.4137 auprc=0.4211 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 07:28:07 |   [cross-react] same_pep n=1684 med=0.0971 | random n=1944 med=0.0997
+2026-04-06 07:37:10 |   [cfg3] ep14/30 tl=-0.0970 vl=5.6304 auroc=0.5238 auprc=0.4881 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 07:37:11 |   [cross-react] same_pep n=1684 med=0.0876 | random n=1944 med=0.0906
+2026-04-06 07:46:12 |   [cfg3] ep15/30 tl=-0.1153 vl=5.5287 auroc=0.5508 auprc=0.5262 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 07:46:12 |   [cross-react] same_pep n=1684 med=0.0907 | random n=1944 med=0.0936
+2026-04-06 07:55:13 |   [cfg3] ep16/30 tl=-0.1313 vl=5.3301 auroc=0.4298 auprc=0.4283 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 07:55:13 |   [cross-react] same_pep n=1684 med=0.0867 | random n=1944 med=0.0884
+2026-04-06 08:04:15 |   [cfg3] ep17/30 tl=-0.1449 vl=5.4207 auroc=0.5198 auprc=0.4834 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 08:04:15 |   [cross-react] same_pep n=1684 med=0.0778 | random n=1944 med=0.0805
+2026-04-06 08:13:16 |   [cfg3] ep18/30 tl=-0.1562 vl=5.5574 auroc=0.5161 auprc=0.5031 f1=0.6603
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 08:13:17 |   [cross-react] same_pep n=1684 med=0.0738 | random n=1944 med=0.0778
+2026-04-06 08:13:17 |   Early stop at ep18 (patience=10)
+2026-04-06 08:13:20 | Config 4 best AUROC: 0.7802 at epoch 8
+2026-04-06 08:13:20 |
+===== GLOBAL BEST AUROC: 0.7802 =====
+2026-04-06 08:13:20 | Config: {'rL': 8, 'rD': 16, 'd': 128, 'R_PH': 0.7, 'lr': 0.0001, 'weight_decay': 0.001, 'alpha': 1.0, '
+beta': 10.0}
+2026-04-06 08:13:26 |
+Test AUROC: 0.7300
+2026-04-06 08:13:26 | Test AUPRC: 0.8116
+2026-04-06 08:13:26 | Test F1: 0.6858
+2026-04-06 08:13:26 | Test confusion:
+[[1252  748]
+ [ 653 1529]]
+/home/natasha/multimodal_model/scripts/train/hpo_baseline_hamiltonian.py:373: MatplotlibDeprecationWarning: The 'labels' para
+meter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  plt.boxplot([same_pep, pos_dist.tolist()], labels=["Same peptide", "Random"])
+2026-04-06 08:13:26 |   [cross-react] same_pep n=1910 med=0.4097 | random n=2182 med=0.4188
+2026-04-06 08:13:26 | HPO summary saved to /home/natasha/multimodal_model/models/checkpoints/hpo_baseline_hamiltonian/hpo_sum
+mary.csv
+2026-04-06 08:13:26 | Done.
+(tcr-multimodal) natasha@natasha-System-Product-Name:~/multimodal_model/scripts/trai
+(tcr-multimodal) natasha@natasha-System-Product-Name:~/multimodal_model/scripts/train$ python hpo_baseline_hamiltonian.py 2>&
+1 | tee hpo_baseline_hamiltonian.log
+/home/natasha/miniconda3/envs/tcr-multimodal/lib/python3.10/site-packages/torch/cuda/__init__.py:63: FutureWarning: The pynvm
+l package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to t
+he maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+2026-04-06 15:38:12 | Peptide lookups: train=31154, val=3944, test=4182
+2026-04-06 15:38:12 | Device: cuda
+2026-04-06 15:38:12 | GPU: NVIDIA GeForce RTX 4070 Ti SUPER
+2026-04-06 15:38:25 | Loaders: train=3895, val=493, test=523
+2026-04-06 15:38:25 | Running narrowed debug sweep: 1 config | plots every 5 epochs
+2026-04-06 15:38:25 |
+===== Config 1/1: {'rL': 8, 'rD': 16, 'lr': 0.0001, 'wd': 0.001, 'alpha': 1.0, 'beta': 10.0} =====
+2026-04-06 15:47:46 |   [cfg0] ep1/30 tl=3.7049 vl=6.9533 auroc=0.4480 auprc=0.5115 f1=0.6603 thr=0.623984 dir=<= auroc_ema=0
+.4480
+2026-04-06 15:47:46 |   [cfg0] VAL score stats | range=(-0.124102, 0.623984) | pos_mean=0.303038 pos_med=0.334039 | neg_mean=
+0.355161 neg_med=0.347480
+2026-04-06 15:47:47 |   [cross-react] same_pep n=232759 med=0.5431 | random n=1888596 med=0.5914 | MWU p=1.494e-153
+2026-04-06 15:47:47 |   -> New best EMA-AUROC=0.4480 (raw AUROC=0.4480) ep1, saved
+2026-04-06 15:56:51 |   [cfg0] ep2/30 tl=1.3422 vl=6.6231 auroc=0.1924 auprc=0.3545 f1=0.7441 thr=0.621232 dir=<= auroc_ema=0
+.3202
+2026-04-06 15:56:51 |   [cfg0] VAL score stats | range=(0.058359, 0.868783) | pos_mean=0.476955 pos_med=0.503090 | neg_mean=0
+.614435 neg_med=0.626542
+2026-04-06 16:05:58 |   [cfg0] ep3/30 tl=0.9798 vl=6.5143 auroc=0.3972 auprc=0.4761 f1=0.6603 thr=0.897340 dir=<= auroc_ema=0
+.3459
+2026-04-06 16:05:58 |   [cfg0] VAL score stats | range=(0.170800, 0.897340) | pos_mean=0.623325 pos_med=0.656921 | neg_mean=0
+.680999 neg_med=0.698140
+2026-04-06 16:15:03 |   [cfg0] ep4/30 tl=0.7740 vl=6.5259 auroc=0.3010 auprc=0.4075 f1=0.6668 thr=0.743729 dir=<= auroc_ema=0
+.2969
+2026-04-06 16:15:03 |   [cfg0] VAL score stats | range=(0.252532, 0.932084) | pos_mean=0.665997 pos_med=0.705898 | neg_mean=0
+.749958 neg_med=0.762324
+2026-04-06 16:24:10 |   [cfg0] ep5/30 tl=0.6219 vl=7.2916 auroc=0.6083 auprc=0.6659 f1=0.6603 thr=0.244730 dir=>= auroc_ema=0
+.4355
+2026-04-06 16:24:10 |   [cfg0] VAL score stats | range=(0.244730, 0.793110) | pos_mean=0.551016 pos_med=0.563179 | neg_mean=0
+.518123 neg_med=0.530084
+2026-04-06 16:24:10 |   [cross-react] same_pep n=232759 med=0.2057 | random n=1888596 med=0.2266 | MWU p=0.000e+00
+2026-04-06 16:33:11 |   [cfg0] ep6/30 tl=0.4597 vl=7.2498 auroc=0.1556 auprc=0.3337 f1=0.7697 thr=0.758423 dir=<= auroc_ema=0
+.3550
+2026-04-06 16:33:11 |   [cfg0] VAL score stats | range=(0.378497, 0.928590) | pos_mean=0.677597 pos_med=0.697149 | neg_mean=0
+.798714 neg_med=0.803765
+2026-04-06 16:42:15 |   [cfg0] ep7/30 tl=0.3487 vl=7.3258 auroc=0.4900 auprc=0.5857 f1=0.6603 thr=0.945662 dir=<= auroc_ema=0
+.4180
+2026-04-06 16:42:15 |   [cfg0] VAL score stats | range=(0.440491, 0.945662) | pos_mean=0.769897 pos_med=0.799348 | neg_mean=0
+.784957 neg_med=0.793073
+2026-04-06 16:51:19 |   [cfg0] ep8/30 tl=0.2587 vl=6.7785 auroc=0.2279 auprc=0.3496 f1=0.7160 thr=0.805456 dir=<= auroc_ema=0
+.2912
+2026-04-06 16:51:19 |   [cfg0] VAL score stats | range=(0.352008, 0.926129) | pos_mean=0.706669 pos_med=0.712581 | neg_mean=0
+.790884 neg_med=0.791250
+2026-04-06 17:00:24 |   [cfg0] ep9/30 tl=0.1877 vl=6.3033 auroc=0.5916 auprc=0.6427 f1=0.6603 thr=0.563641 dir=>= auroc_ema=0
+.4365
+2026-04-06 17:00:24 |   [cfg0] VAL score stats | range=(0.563641, 0.958091) | pos_mean=0.827636 pos_med=0.842419 | neg_mean=0
+.811093 neg_med=0.814964
+2026-04-06 17:09:27 |   [cfg0] ep10/30 tl=0.1191 vl=6.5963 auroc=0.6221 auprc=0.6487 f1=0.6603 thr=0.580240 dir=>= auroc_ema=
+0.4806
+2026-04-06 17:09:27 |   [cfg0] VAL score stats | range=(0.580240, 0.953430) | pos_mean=0.826939 pos_med=0.833471 | neg_mean=0
+.798403 neg_med=0.803250
+2026-04-06 17:09:28 |   [cross-react] same_pep n=232759 med=0.1231 | random n=1888596 med=0.1411 | MWU p=0.000e+00
+2026-04-06 17:09:28 |   -> New best EMA-AUROC=0.4806 (raw AUROC=0.6221) ep10, saved
+2026-04-06 17:18:36 |   [cfg0] ep11/30 tl=0.0623 vl=6.3177 auroc=0.5583 auprc=0.6549 f1=0.6603 thr=0.638153 dir=>= auroc_ema=
+0.5907
+2026-04-06 17:18:36 |   [cfg0] VAL score stats | range=(0.638153, 0.977699) | pos_mean=0.872157 pos_med=0.886196 | neg_mean=0
+.869844 neg_med=0.877117
+2026-04-06 17:18:36 |   -> New best EMA-AUROC=0.5907 (raw AUROC=0.5583) ep11, saved
+2026-04-06 17:27:39 |   [cfg0] ep12/30 tl=0.0204 vl=6.4281 auroc=0.2477 auprc=0.3635 f1=0.6922 thr=0.902445 dir=<= auroc_ema=
+0.4760
+2026-04-06 17:27:39 |   [cfg0] VAL score stats | range=(0.530627, 0.968717) | pos_mean=0.809138 pos_med=0.806397 | neg_mean=0
+.867805 neg_med=0.865745
+2026-04-06 17:36:43 |   [cfg0] ep13/30 tl=-0.0215 vl=6.1683 auroc=0.2851 auprc=0.3877 f1=0.6758 thr=0.932916 dir=<= auroc_ema
+=0.3637
+2026-04-06 17:36:43 |   [cfg0] VAL score stats | range=(0.621565, 0.975305) | pos_mean=0.856134 pos_med=0.865663 | neg_mean=0
+.901248 neg_med=0.902357
+2026-04-06 17:45:49 |   [cfg0] ep14/30 tl=-0.0496 vl=6.7490 auroc=0.2616 auprc=0.3695 f1=0.6923 thr=0.846468 dir=<= auroc_ema
+=0.2648
+2026-04-06 17:45:49 |   [cfg0] VAL score stats | range=(0.515254, 0.951249) | pos_mean=0.763237 pos_med=0.756128 | neg_mean=0
+.816149 neg_med=0.813647
+2026-04-06 17:54:56 |   [cfg0] ep15/30 tl=-0.0735 vl=6.1425 auroc=0.3050 auprc=0.3930 f1=0.6878 thr=0.917265 dir=<= auroc_ema
+=0.2839
+2026-04-06 17:54:56 |   [cfg0] VAL score stats | range=(0.474815, 0.968477) | pos_mean=0.866026 pos_med=0.876388 | neg_mean=0
+.902476 neg_med=0.907412
+2026-04-06 17:54:56 |   [cross-react] same_pep n=232759 med=0.0897 | random n=1888596 med=0.1016 | MWU p=0.000e+00
+2026-04-06 18:03:59 |   [cfg0] ep16/30 tl=-0.0909 vl=6.3835 auroc=0.3775 auprc=0.4424 f1=0.6616 thr=0.937638 dir=<= auroc_ema
+=0.3147
+2026-04-06 18:03:59 |   [cfg0] VAL score stats | range=(0.622542, 0.982351) | pos_mean=0.887235 pos_med=0.900921 | neg_mean=0
+.911099 neg_med=0.918037
+2026-04-06 18:13:06 |   [cfg0] ep17/30 tl=-0.1125 vl=6.7855 auroc=0.5203 auprc=0.5915 f1=0.6603 thr=0.982704 dir=<= auroc_ema
+=0.4009
+2026-04-06 18:13:06 |   [cfg0] VAL score stats | range=(0.694196, 0.982704) | pos_mean=0.916638 pos_med=0.931323 | neg_mean=0
+.918684 neg_med=0.928714
+2026-04-06 18:22:10 |   [cfg0] ep18/30 tl=-0.1215 vl=7.2388 auroc=0.5405 auprc=0.6107 f1=0.6603 thr=0.973360 dir=<= auroc_ema
+=0.4794
+2026-04-06 18:22:10 |   [cfg0] VAL score stats | range=(0.513445, 0.973360) | pos_mean=0.900218 pos_med=0.909756 | neg_mean=0
+.901970 neg_med=0.904300
+2026-04-06 18:31:13 |   [cfg0] ep19/30 tl=-0.1383 vl=6.5333 auroc=0.2526 auprc=0.3663 f1=0.6908 thr=0.843659 dir=<= auroc_ema
+=0.4378
+2026-04-06 18:31:13 |   [cfg0] VAL score stats | range=(0.592349, 0.966410) | pos_mean=0.815931 pos_med=0.812768 | neg_mean=0
+.863499 neg_med=0.862531
+2026-04-06 18:40:13 |   [cfg0] ep20/30 tl=-0.1441 vl=6.6598 auroc=0.5548 auprc=0.6080 f1=0.6603 thr=0.653293 dir=>= auroc_ema
+=0.4493
+2026-04-06 18:40:13 |   [cfg0] VAL score stats | range=(0.653293, 0.984959) | pos_mean=0.922690 pos_med=0.937145 | neg_mean=0
+.919790 neg_med=0.928943
+2026-04-06 18:40:13 |   [cross-react] same_pep n=232759 med=0.0710 | random n=1888596 med=0.0776 | MWU p=0.000e+00
+2026-04-06 18:49:15 |   [cfg0] ep21/30 tl=-0.1598 vl=6.7204 auroc=0.5575 auprc=0.6394 f1=0.6603 thr=0.660029 dir=>= auroc_ema
+=0.4549
+2026-04-06 18:49:15 |   [cfg0] VAL score stats | range=(0.660029, 0.983518) | pos_mean=0.926966 pos_med=0.935099 | neg_mean=0
+.924258 neg_med=0.931875
+2026-04-06 18:49:15 |   Early stop at ep21 (patience=10)
+2026-04-06 18:49:15 | Config 1 best raw AUROC: 0.5583 | best EMA AUROC: 0.5907 at epoch 11
+2026-04-06 18:49:15 |
+===== GLOBAL BEST EMA AUROC: 0.5907 =====
+2026-04-06 18:49:15 | Config: {'rL': 8, 'rD': 16, 'd': 128, 'R_PH': 0.7, 'lr': 0.0001, 'weight_decay': 0.001, 'alpha': 1.0, '
+beta': 10.0, 'delta': 1.0, 'gamma_var': 1.0}
+2026-04-06 18:49:27 |
+[TEST] using threshold=0.638153 direction=>= | pred_pos=4175 pred_neg=7
+2026-04-06 18:49:27 | [TEST] score stats | range=(0.611385, 0.977768) | pos_mean=0.868148 pos_med=0.883686 | neg_mean=0.84289
+3 neg_med=0.852019
+2026-04-06 18:49:27 | Test AUROC: 0.6612
+2026-04-06 18:49:27 | Test AUPRC: 0.7490
+2026-04-06 18:49:27 | Test F1: 0.6843
+2026-04-06 18:49:27 | Test accuracy: 0.5201
+2026-04-06 18:49:27 | Test precision: 0.5210
+2026-04-06 18:49:27 | Test recall: 0.9968
+2026-04-06 18:49:27 | Test confusion:
+[[   0 2000]
+ [   7 2175]]
+2026-04-06 18:49:28 |   [cross-react] same_pep n=272795 med=0.1101 | random n=2379471 med=0.1199 | MWU p=1.824e-306
+2026-04-06 18:49:28 | HPO summary saved to /home/natasha/multimodal_model/models/checkpoints/hpo_baseline_hamiltonian_v2/hpo_
+summary.csv
+2026-04-06 18:49:28 | Done.
+(tcr-multimodal) natasha@natasha-System-Product-Name:~/multimodal_model/scripts/train$ #
