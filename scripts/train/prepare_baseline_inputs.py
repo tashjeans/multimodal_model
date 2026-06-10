@@ -41,11 +41,11 @@ from transformers import AutoTokenizer, EsmModel
 
 PROJECT_ROOT = Path("/home/natasha/multimodal_model")
 
-TRAIN_CSV = PROJECT_ROOT / "data/train/train_df_clean.csv"
+TRAIN_CSV = PROJECT_ROOT / "data/train/train_with_ids_dedup_vs_valtest.csv"
 VAL_CSV = PROJECT_ROOT / "data/val/val_df_clean_pos_neg.csv"
 TEST_CSV = PROJECT_ROOT / "data/test/test_df_clean_pos_neg.csv"
 
-FINETUNED_EMBED_ROOT = PROJECT_ROOT / "models/embeddings/no_boltz"
+FINETUNED_EMBED_ROOT = PROJECT_ROOT / "models/embeddings/no_boltz_train_dedup"
 
 OUTPUT_DIR = Path("./prepared_baseline_inputs")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

@@ -25,7 +25,7 @@ data/processed/
 *.hdf5
 
 # === Models and Checkpoints ===
-models/
+/models/
 *.pt
 *.pth
 *.ckpt
@@ -69,6 +69,8 @@ data/
 embeddings/
 boltz_outputs/
 outputs/
+outputs_data
+outputs_data/
 stitchr/
 *.pt
 *.pth

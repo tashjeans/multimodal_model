@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 """
-HPO for full Hamiltonian model with signal-aware Boltz Z*
-Dual AUROC tracking: cosine (eT·ePH) and Hamiltonian (-H).
-Best AUROC from either metric is used for early stopping and selection.
+Random baseline — untrained embeddings (uniform [0,1]) as comparison
 
 Run:
-    tmux new -s hpo_boltz
+    tmux new -s hpo_random
     conda activate tcr-multimodal
     cd /home/natasha/multimodal_model/scripts/train
-    python hpo_full_hamiltonian_boltz.py 2>&1 | tee hpo_full_hamiltonian_boltz.log
+    python hpo_random_baseline.py 2>&1 | tee hpo_random_baseline.log
 """
 
 import os, sys, gc, copy, time, math, random, json, logging
@@ -37,7 +35,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 # ============================================================
 # LOGGING
 # ============================================================
-LOG_FILE = "hpo_full_hamiltonian_boltz.log"
+LOG_FILE = "hpo_random_baseline.log"
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(message)s",
@@ -50,21 +48,19 @@ log = logging.getLogger(__name__)
 # PATHS
 # ============================================================
 PROJECT = Path("/home/natasha/multimodal_model")
-EMBED_ROOT = PROJECT / "models/embeddings/no_boltz"
+EMBED_ROOT = PROJECT / "models/embeddings/no_boltz_train_dedup"
 CHECKPOINTS_DIR = PROJECT / "models/checkpoints"
 FIGURE_DIR = PROJECT / "models/figures"
 
-TRAIN_CSV = str(PROJECT / "data/train/train_df_clean.csv")
+TRAIN_CSV = str(PROJECT / "data/train/train_with_ids_dedup_vs_valtest.csv")
 VAL_CSV   = str(PROJECT / "data/val/val_df_clean_pos_neg.csv")
 TEST_CSV  = str(PROJECT / "data/test/test_df_clean_pos_neg.csv")
 
-BOLTZ_LATENT_DIR = PROJECT / "models/embeddings/boltz_signal_bottleneck_latents"
-ZSTAR_D = 128
-ZSTAR_RANK = 8
 
-FIGURE_SUBDIR = FIGURE_DIR / "hpo_full_hamiltonian_boltz"
+
+FIGURE_SUBDIR = FIGURE_DIR / "hpo_random_baseline"
 FIGURE_SUBDIR.mkdir(parents=True, exist_ok=True)
-SAVE_DIR = CHECKPOINTS_DIR / "hpo_full_hamiltonian_boltz"
+SAVE_DIR = CHECKPOINTS_DIR / "hpo_random_baseline"
 SAVE_DIR.mkdir(parents=True, exist_ok=True)
 
 # ============================================================
@@ -73,11 +69,8 @@ SAVE_DIR.mkdir(parents=True, exist_ok=True)
 
 SEARCH_SPACE = [
     {"rL": 8,  "rD": 16, "lr": 1e-4, "wd": 1e-2, "alpha": 1.0,  "beta": 25.0},
-    {"rL": 8,  "rD": 16, "lr": 3e-4, "wd": 1e-2, "alpha": 1.0,  "beta": 25.0},
-    {"rL": 4,  "rD": 8,  "lr": 1e-4, "wd": 1e-2, "alpha": 1.0,  "beta": 25.0},
-    {"rL": 8,  "rD": 16, "lr": 1e-4, "wd": 1e-3, "alpha": 1.0,  "beta": 10.0},
 ]
-NUM_EPOCHS = 30
+NUM_EPOCHS = 10
 PATIENCE = 10
 D = 128
 R_PH = 0.7
@@ -406,121 +399,16 @@ def plot_epoch_diagnostics(val_out, epoch, pep_lookup, run_tag, save_dir):
                           f"{run_tag}_val_xreact_ep{epoch}", ep_dir)
 
 # ============================================================
-# Z* construction from Signal-Aware Boltz latent — NO LEARNABLE PARAMETERS
-# These are pure tensor operations matching SignalAwareOperatorBottleneck.
-# The latent was learned under the new preservation-plus-separation objective
-# The latent theta encodes:
-#   3 diagonal vectors (A_diag, B_diag, C_diag) of size d  -> 3*d
-#   3 blocks × 2 factors (U, V) of size d×r                -> 6*d*r
-#   Total: 3*d + 6*d*r = 3*128 + 6*128*8 = 6528
-# Each block K = diag(diag_vec) + U @ V^T / sqrt(r), giving (d, d) matrices.
-# Z*_residual = [[A, C], [C^T, B]]
-# Z*_full = [[I+A, I+C], [I+C^T, I+B]]
+# Hamiltonian loss with projector-predictor split
+# VICReg var/cov on z_raw (unconstrained), Hamiltonian on ê (normalised)
+# In the no-Boltz limit, Z* = [[I,I],[I,I]] and H = -1 - cos(ê_T, ê_PH)
 # ============================================================
 
 import math
 
-def _split_theta(theta, d=128, r=8):
-    """
-    Split theta (B, 3*d + 6*d*r) into diagonal vectors and low-rank factors.
-    Matches SignalAwareOperatorBottleneck._split_theta exactly.
-    """
-    B = theta.shape[0]
-    offset = 0
-    A_diag = theta[:, offset:offset + d]; offset += d
-    B_diag = theta[:, offset:offset + d]; offset += d
-    C_diag = theta[:, offset:offset + d]; offset += d
-
-    def take_mat():
-        nonlocal offset
-        U = theta[:, offset:offset + d * r].view(B, d, r)
-        offset += d * r
-        V = theta[:, offset:offset + d * r].view(B, d, r)
-        offset += d * r
-        return U, V
-
-    A_U, A_V = take_mat()
-    B_U, B_V = take_mat()
-    C_U, C_V = take_mat()
-
-    assert offset == theta.shape[1], f"Theta split mismatch: offset={offset}, total={theta.shape[1]}"
-    return A_diag, B_diag, C_diag, A_U, A_V, B_U, B_V, C_U, C_V
-
-
-def operator_latent_to_zstar_residual(theta, d=128, r=8):
-    """
-    Convert signal-aware operator parameters (B, 6528) to residual Z* (B, 2d, 2d).
-    No learnable parameters — pure deterministic tensor math.
-    
-    theta: (B, 3*d + 6*d*r) = (B, 6528)
-    Returns: zstar_residual (B, 2d, 2d)
-    """
-    B = theta.shape[0]
-    device = theta.device
-    dtype = theta.dtype
-    
-    A_diag, B_diag, C_diag, A_U, A_V, B_U, B_V, C_U, C_V = _split_theta(theta, d=d, r=r)
-    
-    # Low-rank products
-    A    = torch.matmul(A_U, A_V.transpose(-1, -2)) / math.sqrt(r)  # (B, d, d)
-    Bblk = torch.matmul(B_U, B_V.transpose(-1, -2)) / math.sqrt(r)  # (B, d, d)
-    C    = torch.matmul(C_U, C_V.transpose(-1, -2)) / math.sqrt(r)  # (B, d, d)
-    
-    # Symmetrise intra-chain blocks
-    A    = 0.5 * (A + A.transpose(1, 2))
-    Bblk = 0.5 * (Bblk + Bblk.transpose(1, 2))
-    
-    # Add diagonal terms
-    eye = torch.eye(d, device=device, dtype=dtype).unsqueeze(0)  # (1, d, d)
-    A    = A    + eye * A_diag.unsqueeze(-1)
-    Bblk = Bblk + eye * B_diag.unsqueeze(-1)
-    C    = C    + eye * C_diag.unsqueeze(-1)
-    
-    # Assemble residual Z*
-    zstar_residual = torch.zeros(B, 2*d, 2*d, device=device, dtype=dtype)
-    zstar_residual[:, :d, :d] = A
-    zstar_residual[:, :d, d:] = C
-    zstar_residual[:, d:, :d] = C.transpose(1, 2)
-    zstar_residual[:, d:, d:] = Bblk
-    zstar_residual = 0.5 * (zstar_residual + zstar_residual.transpose(1, 2))
-    return zstar_residual
-
-
-def add_identity_to_zstar(zstar_residual, d=128):
-    """
-    Add identity to all four blocks of Z*:
-        [[I+A, I+C], [I+C^T, I+B]]
-    This ensures a baseline cosine alignment term even when structural signal is weak.
-    """
-    B = zstar_residual.shape[0]
-    device = zstar_residual.device
-    dtype = zstar_residual.dtype
-    
-    I = torch.eye(d, device=device, dtype=dtype).unsqueeze(0).expand(B, -1, -1)
-    zstar = zstar_residual.clone()
-    zstar[:, :d, :d] += I
-    zstar[:, :d, d:] += I
-    zstar[:, d:, :d] += I
-    zstar[:, d:, d:] += I
-    zstar = 0.5 * (zstar + zstar.transpose(1, 2))
-    return zstar
-
-
-def operator_latent_to_full_zstar(operator_params, d=128, r=8):
-    """Convenience: latent -> residual -> add identity -> full Z*."""
-    residual = operator_latent_to_zstar_residual(operator_params, d=d, r=r)
-    return add_identity_to_zstar(residual, d=d)
-
-
-# ============================================================
-# Full Hamiltonian loss with per-sample Z* from Boltz
-# VICReg var/cov on z_raw (unconstrained), Hamiltonian on ê with Z*
-# ============================================================
-
 def vicreg_hamiltonian_loss(
     zT_raw,
     zPH_raw,
-    Zstar,
     alpha=1.0,
     beta=25.0,
     delta=1.0,
@@ -528,24 +416,33 @@ def vicreg_hamiltonian_loss(
     eps=1e-4,
 ):
     """
-    Full Hamiltonian loss with per-sample Z* from Boltz autoencoder.
-    
-    VICReg regularisers on z_raw (unconstrained).
-    Hamiltonian H = -½ ê^T Z* ê on normalised ê with frozen per-sample Z*.
+    Projector-predictor split loss for the no-Boltz baseline.
+
+    VICReg regularisers operate on z_raw (unconstrained R^d).
+    Hamiltonian invariance operates on ê = z_raw / ||z_raw|| (unit sphere).
+
+    In the no-Boltz limit, Z* is the 2d×2d block matrix of identities,
+    and the Hamiltonian reduces to H = -1 - cos(ê_T, ê_PH).
+
+    Args:
+        zT_raw:  (B, d) unconstrained TCR embeddings from MLP expander
+        zPH_raw: (B, d) unconstrained pMHC embeddings from MLP expander
+        alpha: weight on Hamiltonian invariance
+        beta: weight on variance regularisation
+        delta: weight on covariance regularisation
+        gamma_var: target std per dimension (1.0 for unconstrained)
     """
     B, d = zT_raw.shape
 
     # ---- 1) L2 normalise for Hamiltonian ----
-    eT  = zT_raw / (zT_raw.norm(dim=-1, keepdim=True) + eps)
-    ePH = zPH_raw / (zPH_raw.norm(dim=-1, keepdim=True) + eps)
-    e_hat = torch.cat([eT, ePH], dim=-1)  # (B, 2d)
+    eT  = zT_raw / (zT_raw.norm(dim=-1, keepdim=True) + eps)   # (B, d) unit sphere
+    ePH = zPH_raw / (zPH_raw.norm(dim=-1, keepdim=True) + eps)  # (B, d) unit sphere
 
-
-    # ---- 2) Hamiltonian with per-sample Z* ----
-    quad = torch.einsum("bi,bij,bj->b", e_hat, Zstar, e_hat)  # (B,)
-    H = -0.5 * quad
-    L_inv = H.mean()
-
+    # ---- 2) Hamiltonian invariance (no-Boltz limit: Z* = identity blocks) ----
+    # H = -½ ê^T Z* ê = -½(||ê_T||² + 2cos(ê_T,ê_PH) + ||ê_PH||²) = -1 - cos
+    cos = (eT * ePH).sum(dim=-1)  # (B,)
+    H = -1.0 - cos                # (B,) — lower = stronger binding
+    L_inv = H.mean()              # minimising this pushes cos → 1
 
     # ---- 3) VICReg var/cov on UNCONSTRAINED z_raw ----
     L_var_T  = vicreg_variance(zT_raw,  gamma=gamma_var, eps=eps)
@@ -560,106 +457,49 @@ def vicreg_hamiltonian_loss(
     L_total = alpha * L_inv + beta * L_var_total + delta * L_cov_total
 
     # ---- 5) Diagnostics ----
-    cos = (eT * ePH).sum(dim=-1)
-    H_cos = -1.0 * cos
     components = {
-        "L_total": L_total.item(), "L_inv_H": L_inv.item(),
-        "L_var_T": L_var_T.item(), "L_var_PH": L_var_PH.item(),
-        "L_cov_T": L_cov_T.item(), "L_cov_PH": L_cov_PH.item(),
-        "alpha_L_inv": (alpha * L_inv).item(),
-        "beta_var": (beta * L_var_total).item(),
-        "delta_cov": (delta * L_cov_total).item(),
-        "cos_mean": H_cos.mean().item(),
-        "H_mean": H.mean().item(), "H_min": H.min().item(), "H_max": H.max().item(),
-        "quad_mean": quad.mean().item(),
+        "L_total":      L_total.item(),
+        "L_inv_H":      L_inv.item(),
+        "L_var_T":      L_var_T.item(),
+        "L_var_PH":     L_var_PH.item(),
+        "L_cov_T":      L_cov_T.item(),
+        "L_cov_PH":     L_cov_PH.item(),
+        "alpha_L_inv":  (alpha * L_inv).item(),
+        "beta_var":     (beta * L_var_total).item(),
+        "delta_cov":    (delta * L_cov_total).item(),
+        "cos_mean":     cos.mean().item(),
+        "H_mean":       H.mean().item(),
+        "H_min":        H.min().item(),
+        "H_max":        H.max().item(),
         "zT_norm_mean": zT_raw.norm(dim=-1).mean().item(),
         "zPH_norm_mean": zPH_raw.norm(dim=-1).mean().item(),
     }
+
     return L_total, components
 
 
 # ============================================================
-# Load Boltz operator latents and create paired ESM+Boltz dataset
+# RANDOM EMBEDDING DATASET — random uniform [0,1] instead of fine-tuned ESM
 # ============================================================
 
-class OperatorLatentStore:
-    """Loads exported operator latents and provides pair_id -> latent lookup."""
-    def __init__(self, latent_dir, split_name):
-        latent_path = os.path.join(latent_dir, f"{split_name}_latents.npz")
-        meta_path = os.path.join(latent_dir, f"{split_name}_metadata.csv")
-        
-        if not os.path.exists(latent_path):
-            raise FileNotFoundError(f"Operator latents not found: {latent_path}")
-        
-        self.latents = np.load(latent_path)["latent"]  # (N, operator_param_dim)
-        self.meta = pd.read_csv(meta_path)
-        
-        self.pid_to_row = {}
-        for _, row in self.meta.iterrows():
-            self.pid_to_row[str(row["pair_id"])] = int(row["latent_row"])
-        
-        print(f"[OperatorLatentStore:{split_name}] {len(self.pid_to_row)} pairs, "
-              f"latent shape: {self.latents.shape}")
-    
-    def get(self, pair_id):
-        row = self.pid_to_row.get(str(pair_id))
-        if row is None:
-            return None
-        return self.latents[row]
-    
-    def has(self, pair_id):
-        return str(pair_id) in self.pid_to_row
-
-
-class PairedESMBoltzDataset(Dataset):
-    """Inner-joins ESM shards with Boltz operator latents on pair_id."""
-    def __init__(self, esm_dataset, latent_store):
+class RandomEmbeddingDataset(Dataset):
+    """Wraps a ShardedBatchTripletDataset and replaces ESM embeddings with random uniform [0,1]."""
+    def __init__(self, esm_dataset):
         self.esm_dataset = esm_dataset
-        self.latent_store = latent_store
-        
-        self.matched_indices = []
-        skipped = 0
-        
-        for idx in range(len(esm_dataset)):
-            sample = esm_dataset[idx]
-            pair_ids = sample["pair_id"]
-            
-            if isinstance(pair_ids, list):
-                if all(latent_store.has(pid) for pid in pair_ids):
-                    self.matched_indices.append(idx)
-                else:
-                    skipped += 1
-            else:
-                if latent_store.has(pair_ids):
-                    self.matched_indices.append(idx)
-                else:
-                    skipped += 1
-        
-        print(f"[PairedDataset] matched: {len(self.matched_indices)}, "
-              f"skipped (no Boltz): {skipped}")
-    
+
     def __len__(self):
-        return len(self.matched_indices)
-    
+        return len(self.esm_dataset)
+
     def __getitem__(self, idx):
-        esm_idx = self.matched_indices[idx]
-        sample = self.esm_dataset[esm_idx]
-        
-        pair_ids = sample["pair_id"]
-        if isinstance(pair_ids, list):
-            latents = [torch.tensor(self.latent_store.get(pid), dtype=torch.float32) for pid in pair_ids]
-            sample["operator_latent"] = torch.stack(latents, dim=0)
-        else:
-            latent = self.latent_store.get(pair_ids)
-            sample["operator_latent"] = torch.tensor(latent, dtype=torch.float32).unsqueeze(0)
-        
+        sample = self.esm_dataset[idx]
+        # Replace ESM embeddings with random, keeping shapes and masks
+        sample["emb_T"] = torch.rand_like(sample["emb_T"])
+        sample["emb_P"] = torch.rand_like(sample["emb_P"])
+        sample["emb_H"] = torch.rand_like(sample["emb_H"])
         return sample
 
-
-
-
 # ============================================================
-# FORWARD + EVALUATE — full Hamiltonian (dual AUROC: cosine + H)
+# FORWARD + EVALUATE — baseline (score = cosine)
 # ============================================================
 
 @torch.no_grad()
@@ -667,52 +507,36 @@ def forward_batch(batch, tcr_proj, pmhc_proj, device, eps=1e-8):
     eT = batch["emb_T"].to(device); mT = batch["mask_T"].to(device)
     eP = batch["emb_P"].to(device); mP = batch["mask_P"].to(device)
     eH = batch["emb_H"].to(device); mH = batch["mask_H"].to(device)
-    op_lat = batch["operator_latent"].to(device)
     zT = tcr_proj(eT, mT); zPH = pmhc_proj(eP, mP, eH, mH)
-    Zstar = operator_latent_to_full_zstar(op_lat, d=ZSTAR_D, r=ZSTAR_RANK)
     eT_n = zT/(zT.norm(dim=-1,keepdim=True)+eps); ePH_n = zPH/(zPH.norm(dim=-1,keepdim=True)+eps)
-    e_hat = torch.cat([eT_n, ePH_n], dim=-1)
-    quad = torch.einsum("bi,bij,bj->b", e_hat, Zstar, e_hat)
-    H = -0.5 * quad
     cos = (eT_n*ePH_n).sum(dim=-1)
+    H = -1.0 - cos
     labels = batch["binding_flag"]
     labels = labels.cpu().numpy() if torch.is_tensor(labels) else np.array(labels)
-    return {"zT": zT, "zPH": zPH, "Zstar": Zstar, "cos": cos.cpu().numpy(),
-            "H": H.cpu().numpy(), "score_cos": cos.cpu().numpy(), "score_H": (-H).cpu().numpy(),
-            "labels": labels, "pair_ids": batch["pair_id"]}
+    return {"zT": zT, "zPH": zPH, "cos": cos.cpu().numpy(), "H": H.cpu().numpy(),
+            "scores": cos.cpu().numpy(), "labels": labels, "pair_ids": batch["pair_id"]}
 
 
 @torch.no_grad()
 def evaluate_loader(loader, tcr_proj, pmhc_proj, device, alpha=1.0, beta=25.0, delta=1.0, gamma_var=1.0, eps=1e-8):
     tcr_proj.eval(); pmhc_proj.eval()
-    all_scos, all_sH, all_H, all_cos, all_lab, all_pid = [], [], [], [], [], []
+    all_s, all_H, all_cos, all_lab, all_pid = [], [], [], [], []
     rl, ns = 0.0, 0
     for batch in loader:
         out = forward_batch(batch, tcr_proj, pmhc_proj, device, eps)
-        all_scos.append(out["score_cos"]); all_sH.append(out["score_H"])
-        all_H.append(out["H"]); all_cos.append(out["cos"])
+        all_s.append(out["scores"]); all_H.append(out["H"]); all_cos.append(out["cos"])
         all_lab.append(out["labels"]); all_pid.extend(out["pair_ids"])
-        loss, _ = vicreg_hamiltonian_loss(out["zT"], out["zPH"], out["Zstar"],
-                    alpha=alpha, beta=beta, delta=delta, gamma_var=gamma_var)
+        loss, _ = vicreg_hamiltonian_loss(out["zT"], out["zPH"], alpha=alpha, beta=beta, delta=delta, gamma_var=gamma_var)
         rl += loss.item(); ns += 1
-    scos = np.concatenate(all_scos); sH = np.concatenate(all_sH)
-    H_vals = np.concatenate(all_H); cos_vals = np.concatenate(all_cos)
-    labels = np.concatenate(all_lab).astype(int)
-    auroc_cos = roc_auc_score(labels, scos); auroc_H = roc_auc_score(labels, sH)
-    auprc_cos = average_precision_score(labels, scos); auprc_H = average_precision_score(labels, sH)
-    if auroc_cos >= auroc_H:
-        scores, auroc, auprc, stype = scos, auroc_cos, auprc_cos, "cosine"
-    else:
-        scores, auroc, auprc, stype = sH, auroc_H, auprc_H, "hamiltonian"
+    scores = np.concatenate(all_s); H_vals = np.concatenate(all_H)
+    cos_vals = np.concatenate(all_cos); labels = np.concatenate(all_lab).astype(int)
     thr = find_best_threshold(scores, labels)
-    return {"scores": scores, "scores_cos": scos, "scores_H": sH,
-            "H": H_vals, "cos": cos_vals, "labels": labels, "pair_ids": all_pid,
-            "metrics": {"auroc": auroc, "auroc_cos": auroc_cos, "auroc_H": auroc_H,
-                        "auprc": auprc, "auprc_cos": auprc_cos, "auprc_H": auprc_H,
-                        "val_loss": rl/max(ns,1), "score_type": stype, **thr}}
+    return {"scores": scores, "H": H_vals, "cos": cos_vals, "labels": labels, "pair_ids": all_pid,
+            "metrics": {"auroc": roc_auc_score(labels, scores), "auprc": average_precision_score(labels, scores),
+                        "val_loss": rl/max(ns,1), **thr}}
 
 # ============================================================
-# TRAINING — full Hamiltonian with frozen Boltz Z*
+# TRAINING — baseline Hamiltonian (no Boltz, Z* = identity blocks)
 # ============================================================
 
 def run_experiment(train_loader, val_loader, device, pep_lookup_val,
@@ -733,8 +557,7 @@ def run_experiment(train_loader, val_loader, device, pep_lookup_val,
     ], weight_decay=weight_decay)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=NUM_EPOCHS)
 
-    history = {"train_loss": [], "val_loss": [], "val_auroc": [], "val_auprc": [], "val_f1": [],
-               "val_auroc_cos": [], "val_auroc_H": []}
+    history = {"train_loss": [], "val_loss": [], "val_auroc": [], "val_auprc": [], "val_f1": []}
     best_auroc, best_state, bad_epochs = -float("inf"), None, 0
 
     for epoch in range(NUM_EPOCHS):
@@ -744,11 +567,8 @@ def run_experiment(train_loader, val_loader, device, pep_lookup_val,
             eT = batch["emb_T"].to(device); mT = batch["mask_T"].to(device)
             eP = batch["emb_P"].to(device); mP = batch["mask_P"].to(device)
             eH = batch["emb_H"].to(device); mH = batch["mask_H"].to(device)
-            op_lat = batch["operator_latent"].to(device)
             zT = tcr_proj(eT, mT); zPH = pmhc_proj(eP, mP, eH, mH)
-            with torch.no_grad():
-                Zstar = operator_latent_to_full_zstar(op_lat, d=ZSTAR_D, r=ZSTAR_RANK)
-            loss, _ = vicreg_hamiltonian_loss(zT, zPH, Zstar, alpha=alpha, beta=beta, delta=delta, gamma_var=gamma_var)
+            loss, _ = vicreg_hamiltonian_loss(zT, zPH, alpha=alpha, beta=beta, delta=delta, gamma_var=gamma_var)
             optimizer.zero_grad(set_to_none=True); loss.backward(); optimizer.step()
             rloss += loss.item(); ns += 1
 
@@ -757,13 +577,9 @@ def run_experiment(train_loader, val_loader, device, pep_lookup_val,
         val_out = evaluate_loader(val_loader, tcr_proj, pmhc_proj, device, alpha, beta, delta, gamma_var)
         vl = val_out["metrics"]["val_loss"]; va = val_out["metrics"]["auroc"]
         vp = val_out["metrics"]["auprc"]; vf = val_out["metrics"]["f1"]
-        va_cos = val_out["metrics"]["auroc_cos"]; va_H = val_out["metrics"]["auroc_H"]
         history["val_loss"].append(vl); history["val_auroc"].append(va)
         history["val_auprc"].append(vp); history["val_f1"].append(vf)
-        history["val_auroc_cos"].append(va_cos); history["val_auroc_H"].append(va_H)
-        log.info(f"  [{run_tag}] ep{epoch+1}/{NUM_EPOCHS} tl={tl:.4f} vl={vl:.4f} "
-                 f"auroc={va:.4f}({val_out['metrics']['score_type']}) "
-                 f"cos={va_cos:.4f} H={va_H:.4f} auprc={vp:.4f} f1={vf:.4f}")
+        log.info(f"  [{run_tag}] ep{epoch+1}/{NUM_EPOCHS} tl={tl:.4f} vl={vl:.4f} auroc={va:.4f} auprc={vp:.4f} f1={vf:.4f}")
 
         plot_epoch_diagnostics(val_out, epoch+1, pep_lookup_val, run_tag, FIGURE_SUBDIR)
         scheduler.step()
@@ -784,7 +600,7 @@ def run_experiment(train_loader, val_loader, device, pep_lookup_val,
                 "best_config": best_state["config"], "best_val_metrics": val_out["metrics"],
                 "best_val_outputs": val_out, "history": history, "best_epoch": epoch+1,
             }, SAVE_DIR / f"best_{run_tag}.pt")
-            log.info(f"  -> New best AUROC={va:.4f} ep{epoch+1} ({val_out['metrics']['score_type']}), saved")
+            log.info(f"  -> New best AUROC={va:.4f} ep{epoch+1}, saved")
         else:
             bad_epochs += 1
         if bad_epochs >= PATIENCE:
@@ -797,80 +613,52 @@ def run_experiment(train_loader, val_loader, device, pep_lookup_val,
     return {"tcr_proj": tcr_proj, "pmhc_proj": pmhc_proj, "history": history, "best_state": best_state}
 
 # ============================================================
-# MAIN
+# MAIN — random baseline
 # ============================================================
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     log.info(f"Device: {device}")
-    if device.type == "cuda":
-        log.info(f"GPU: {torch.cuda.get_device_name()}")
 
-    # Load ESM shard datasets
-    train_dataset = ShardedBatchTripletDataset(EMBED_ROOT / "train")
-    val_dataset = ShardedBatchTripletDataset(EMBED_ROOT / "val")
-    test_dataset = ShardedBatchTripletDataset(EMBED_ROOT / "test")
-
-    # Load Boltz latents and create paired datasets
-    op_train = OperatorLatentStore(BOLTZ_LATENT_DIR, "train")
-    op_val = OperatorLatentStore(BOLTZ_LATENT_DIR, "val")
-    op_test = OperatorLatentStore(BOLTZ_LATENT_DIR, "test")
-    paired_train = PairedESMBoltzDataset(train_dataset, op_train)
-    paired_val = PairedESMBoltzDataset(val_dataset, op_val)
-    paired_test = PairedESMBoltzDataset(test_dataset, op_test)
-    train_loader = DataLoader(paired_train, batch_size=1, shuffle=True, num_workers=0, collate_fn=lambda x: x[0])
-    val_loader = DataLoader(paired_val, batch_size=1, shuffle=False, num_workers=0, collate_fn=lambda x: x[0])
-    test_loader = DataLoader(paired_test, batch_size=1, shuffle=False, num_workers=0, collate_fn=lambda x: x[0])
-
+    # Load ESM shard datasets — then wrap with random embeddings
+    esm_train = ShardedBatchTripletDataset(EMBED_ROOT / "train")
+    esm_val = ShardedBatchTripletDataset(EMBED_ROOT / "val")
+    esm_test = ShardedBatchTripletDataset(EMBED_ROOT / "test")
+    
+    train_dataset = RandomEmbeddingDataset(esm_train)
+    val_dataset = RandomEmbeddingDataset(esm_val)
+    test_dataset = RandomEmbeddingDataset(esm_test)
+    
+    train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=0, collate_fn=lambda x: x[0])
+    val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=0, collate_fn=lambda x: x[0])
+    test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=0, collate_fn=lambda x: x[0])
     log.info(f"Loaders: train={len(train_loader)}, val={len(val_loader)}, test={len(test_loader)}")
 
-    # ---- HPO LOOP ----
-    all_results = []
-    best_auroc_global = -float("inf")
-    best_result = None
+    cfg = SEARCH_SPACE[0]
+    run_tag = "random"
+    log.info(f"\n===== Random baseline: {cfg} =====")
 
-    for ci, cfg in enumerate(SEARCH_SPACE):
-        tag = f"cfg{ci}"
-        log.info(f"\n===== Config {ci+1}/{len(SEARCH_SPACE)}: {cfg} =====")
+    result = run_experiment(
+        train_loader, val_loader, device, pep_lookup_val,
+        rL=cfg["rL"], rD=cfg["rD"], lr=cfg["lr"],
+        weight_decay=cfg["wd"], alpha=cfg["alpha"], beta=cfg["beta"],
+        run_tag=run_tag,
+    )
+    log.info(f"Random baseline best AUROC: {result['best_state']['val_auroc']:.4f}")
 
-        result = run_experiment(
-            train_loader, val_loader, device, pep_lookup_val,
-            rL=cfg["rL"], rD=cfg["rD"], lr=cfg["lr"],
-            weight_decay=cfg["wd"], alpha=cfg["alpha"], beta=cfg["beta"],
-            run_tag=tag,
-        )
-        va = result["best_state"]["val_auroc"]
-        all_results.append({"config": cfg, "auroc": va, "epoch": result["best_state"]["epoch"]})
-        log.info(f"Config {ci+1} best AUROC: {va:.4f} at epoch {result['best_state']['epoch']}")
-
-        if va > best_auroc_global:
-            best_auroc_global = va
-            best_result = result
-
-    log.info(f"\n===== GLOBAL BEST AUROC: {best_auroc_global:.4f} =====")
-    log.info(f"Config: {best_result['best_state']['config']}")
-
-    # ---- TEST EVALUATION ----
-    best_thr = best_result["best_state"]["threshold"]
-    test_out = evaluate_loader(test_loader, best_result["tcr_proj"], best_result["pmhc_proj"],
+    # Test
+    best_thr = result["best_state"]["threshold"]
+    test_out = evaluate_loader(test_loader, result["tcr_proj"], result["pmhc_proj"],
                                 device, alpha=1.0, beta=25.0, delta=1.0, gamma_var=1.0)
     preds = (test_out["scores"] >= best_thr).astype(int)
     labels = test_out["labels"]
     log.info(f"\nTest AUROC: {test_out['metrics']['auroc']:.4f}")
-    log.info(f"Test AUPRC: {test_out['metrics']['auprc']:.4f}")
     log.info(f"Test F1: {f1_score(labels, preds, zero_division=0):.4f}")
     log.info(f"Test confusion:\n{confusion_matrix(labels, preds)}")
 
-    # Test plots
-    plot_H_histogram(test_out["H"], labels, "test_H_best", FIGURE_SUBDIR)
-    plot_cosine_histogram(test_out["cos"], labels, "test_cos_best", FIGURE_SUBDIR)
-    plot_cross_reactivity(test_out["cos"], test_out["pair_ids"], labels, pep_lookup_test,
-                          "test_xreact_best", FIGURE_SUBDIR)
-    plot_training_history(best_result["history"], FIGURE_SUBDIR, prefix="best_config")
-
-    # Save HPO summary
-    pd.DataFrame(all_results).to_csv(SAVE_DIR / "hpo_summary.csv", index=False)
-    log.info(f"HPO summary saved to {SAVE_DIR / 'hpo_summary.csv'}")
+    plot_H_histogram(test_out["H"], labels, "random_test_H", FIGURE_SUBDIR)
+    plot_cosine_histogram(test_out["cos"], labels, "random_test_cos", FIGURE_SUBDIR)
+    plot_training_history(result["history"], FIGURE_SUBDIR, prefix="random")
     log.info("Done.")
 
 

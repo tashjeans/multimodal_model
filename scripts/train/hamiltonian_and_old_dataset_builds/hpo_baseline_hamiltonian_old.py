@@ -1,40 +1,31 @@
 #!/usr/bin/env python3
 """
-Baseline Hamiltonian model (no Boltz, Z* = identity blocks) — stability-focused v2
+Baseline Hamiltonian model (no Boltz, Z* = identity blocks)
+Seed-stability test for a single fixed config.
 
-Main changes vs prior v2
-------------------------
-1. Fixed score semantics:
-   - The operative score is now the Hamiltonian H = -1 - cosine.
-   - Lower / more negative H means stronger binding.
-   - Thresholding is therefore fixed to preds = (H <= threshold).
-   - AUROC / AUPRC are computed on -H so that higher ranking scores correspond to positives.
-   This removes the previous threshold-direction flipping across epochs.
+Purpose
+-------
+Test whether run instability is primarily due to seed dependence.
 
-2. Improved run-to-run stability:
-   - Deterministic seeds are set for Python / NumPy / Torch / CUDA.
-   - BatchNorm1d is replaced with LayerNorm.
-   - Dropout is removed.
-   - Gradient clipping is retained.
-   - Warmup + cosine schedule retained.
-   - Search space is narrowed around the smaller, more regularised regime.
+Fixed config
+------------
+rL=4, rD=8, lr=1e-4, wd=1e-2, alpha=1.0, beta=25.0
 
-3. Stronger anti-collapse regularisation:
-   - beta kept in the stronger regime (25.0)
-   - delta increased from 1.0 to 5.0 to strengthen covariance regularisation
+Important choices
+-----------------
+1. Operative score is Hamiltonian H = -1 - cosine.
+   Lower / more negative H = stronger binding.
+2. AUROC / AUPRC are computed on -H so that higher = more positive for sklearn.
+3. Threshold is chosen ONLY ON FINAL VALIDATION after training, using H.
+4. No thresholding diagnostics during training.
+5. Cross-reactivity uses pairwise cosine distances between positive zT embeddings.
 
-4. Logging changed to avoid file conflicts with tee:
-   - This script logs to stdout only.
-   - Use shell tee if you want a logfile.
-
-5. Cross-reactivity kept correct:
-   - Pairwise cosine distances between positive zT embeddings grouped by peptide.
-
-Run:
-    tmux new -s hpo_baseline
-    conda activate tcr-multimodal
-    cd /home/natasha/multimodal_model/scripts/train
-    python hpo_baseline_hamiltonian.py 2>&1 | tee hpo_baseline_hamiltonian.log
+Run
+---
+tmux new -s hpo_baseline
+conda activate tcr-multimodal
+cd /home/natasha/multimodal_model/scripts/train
+python hpo_baseline_hamiltonian.py 2>&1 | tee hpo_baseline_hamiltonian.log
 """
 
 import os
@@ -43,7 +34,7 @@ import copy
 import random
 import logging
 from pathlib import Path
-from collections import defaultdict, deque
+from collections import defaultdict
 
 import numpy as np
 import pandas as pd
@@ -72,21 +63,6 @@ from sklearn.metrics import (
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 # ============================================================
-# REPRODUCIBILITY
-# ============================================================
-SEED = 42
-
-def set_global_seed(seed: int = 42):
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed(seed)
-        torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-
-# ============================================================
 # LOGGING
 # ============================================================
 logging.basicConfig(
@@ -101,39 +77,58 @@ log = logging.getLogger(__name__)
 # PATHS
 # ============================================================
 PROJECT = Path("/home/natasha/multimodal_model")
-EMBED_ROOT = PROJECT / "models/embeddings/no_boltz"
+EMBED_ROOT = PROJECT / "models/embeddings/no_boltz_train_dedup"
 CHECKPOINTS_DIR = PROJECT / "models/checkpoints"
 FIGURE_DIR = PROJECT / "models/figures"
 
-TRAIN_CSV = str(PROJECT / "data/train/train_df_clean.csv")
-VAL_CSV = str(PROJECT / "data/val/val_df_clean_pos_neg.csv")
-TEST_CSV = str(PROJECT / "data/test/test_df_clean_pos_neg.csv")
+TRAIN_CSV = str(PROJECT / "data/train/train_with_ids_dedup_vs_valtest.csv")
+VAL_CSV   = str(PROJECT / "data/val/val_df_clean_pos_neg.csv")
+TEST_CSV  = str(PROJECT / "data/test/test_df_clean_pos_neg.csv")
 
-FIGURE_SUBDIR = FIGURE_DIR / "hpo_baseline_hamiltonian_v2"
+FIGURE_SUBDIR = FIGURE_DIR / "hpo_baseline_hamiltonian_v3_seedscan"
 FIGURE_SUBDIR.mkdir(parents=True, exist_ok=True)
-SAVE_DIR = CHECKPOINTS_DIR / "hpo_baseline_hamiltonian_v2"
+SAVE_DIR = CHECKPOINTS_DIR / "hpo_baseline_hamiltonian_v3_seedscan"
 SAVE_DIR.mkdir(parents=True, exist_ok=True)
 
 # ============================================================
-# HPO CONFIG
+# FIXED EXPERIMENT CONFIG
 # ============================================================
-# Focused stability sweep around the smaller / more regularised regime.
-SEARCH_SPACE = [
-    {"rL": 4, "rD": 8, "lr": 5e-5, "wd": 1e-2, "alpha": 1.0, "beta": 25.0},
-    {"rL": 4, "rD": 8, "lr": 1e-4, "wd": 1e-2, "alpha": 1.0, "beta": 25.0},
-]
-NUM_EPOCHS = 30
-PATIENCE = 10
+FIXED_CFG = {
+    "rL": 4,
+    "rD": 8,
+    "lr": 1e-4,
+    "wd": 1e-2,
+    "alpha": 1.0,
+    "beta": 25.0,
+}
+
+SEEDS = [31, 37, 43, 47, 53, 59, 67]   # change/add if you want more seeds
+
+NUM_EPOCHS = 20
+PATIENCE = 8
+MIN_EPOCHS_BEFORE_EARLY_STOP = 5
+
 D = 128
 R_PH = 0.7
-DELTA = 5.0
+DELTA = 1.0
 GAMMA_VAR = 1.0
 GRAD_CLIP_NORM = 1.0
 WARMUP_EPOCHS = 3
-EMA_WINDOW = 3
-MIN_EPOCHS_BEFORE_EARLY_STOP = 8
 EPS = 1e-8
 PLOT_EVERY_N_EPOCHS = 5
+
+# ============================================================
+# REPRODUCIBILITY
+# ============================================================
+def set_global_seed(seed: int):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 # ============================================================
 # PEPTIDE LOOKUPS
@@ -167,11 +162,12 @@ class ESMProjectionHead(nn.Module):
         self.H_c = nn.Parameter(torch.empty(rL * rD, d))
         nn.init.xavier_uniform_(self.H_c)
 
-        # Stability change: LayerNorm instead of BatchNorm, and dropout removed.
+        # Keep this close to the older regime that gave good runs.
         self.expander = nn.Sequential(
             nn.Linear(d, d),
-            nn.LayerNorm(d),
+            nn.BatchNorm1d(d),
             nn.ReLU(),
+            nn.Dropout(0.1),
             nn.Linear(d, d),
         )
 
@@ -228,7 +224,6 @@ def vicreg_variance(u, gamma=1.0, eps=1e-4):
     std = torch.sqrt(u_centered.var(dim=0, unbiased=False) + eps)
     return F.relu(gamma - std).mean()
 
-
 def vicreg_covariance(u):
     B, d = u.shape
     u_centered = u - u.mean(dim=0, keepdim=True)
@@ -237,13 +232,12 @@ def vicreg_covariance(u):
     cov_off = cov - torch.diag_embed(diag)
     return (cov_off ** 2).sum() / (d * d)
 
-
 def vicreg_hamiltonian_loss(
     zT_raw,
     zPH_raw,
     alpha=1.0,
     beta=25.0,
-    delta=5.0,
+    delta=1.0,
     gamma_var=1.0,
     eps=1e-4,
 ):
@@ -263,22 +257,10 @@ def vicreg_hamiltonian_loss(
     L_cov_total = L_cov_T + L_cov_PH
     L_total = alpha * L_inv + beta * L_var_total + delta * L_cov_total
 
-    components = {
-        "L_total": L_total.item(),
-        "L_inv_H": L_inv.item(),
-        "L_var_T": L_var_T.item(),
-        "L_var_PH": L_var_PH.item(),
-        "L_cov_T": L_cov_T.item(),
-        "L_cov_PH": L_cov_PH.item(),
-        "alpha_L_inv": (alpha * L_inv).item(),
-        "beta_var": (beta * L_var_total).item(),
-        "delta_cov": (delta * L_cov_total).item(),
+    return L_total, {
         "cos_mean": cos.mean().item(),
         "H_mean": H.mean().item(),
-        "H_min": H.min().item(),
-        "H_max": H.max().item(),
     }
-    return L_total, components
 
 # ============================================================
 # DATASET
@@ -319,17 +301,15 @@ def compute_binary_metrics(labels, preds):
         "recall": float(recall_score(labels, preds, zero_division=0)),
     }
 
+def apply_threshold(H_scores, threshold):
+    # Lower / more negative H = more binder-like
+    return (H_scores <= threshold).astype(int)
 
-def apply_threshold(scores, threshold):
-    # Fixed semantics: lower / more negative H means positive.
-    return (scores <= threshold).astype(int)
-
-
-def find_best_threshold(scores, labels):
-    thresholds = np.unique(scores)
+def find_best_threshold_on_H(H_scores, labels):
+    thresholds = np.unique(H_scores)
     best = None
     for thr in thresholds:
-        preds = apply_threshold(scores, thr)
+        preds = apply_threshold(H_scores, thr)
         metrics = compute_binary_metrics(labels, preds)
         if best is None or metrics["f1"] > best["f1"]:
             best = {
@@ -339,12 +319,11 @@ def find_best_threshold(scores, labels):
             }
     return best
 
-
-def log_score_stats(prefix, scores, labels):
-    pos = scores[labels == 1]
-    neg = scores[labels == 0]
+def log_H_stats(prefix, H_scores, labels):
+    pos = H_scores[labels == 1]
+    neg = H_scores[labels == 0]
     log.info(
-        f"{prefix} H score stats | range=({scores.min():.6f}, {scores.max():.6f}) | "
+        f"{prefix} H stats | range=({H_scores.min():.6f}, {H_scores.max():.6f}) | "
         f"pos_mean={pos.mean():.6f} pos_med={np.median(pos):.6f} | "
         f"neg_mean={neg.mean():.6f} neg_med={np.median(neg):.6f}"
     )
@@ -367,22 +346,6 @@ def plot_H_histogram(H_vals, labels, title, save_dir, threshold=None):
     safe = title.replace(" ", "_").replace("/", "_")
     plt.savefig(save_dir / f"{safe}.png")
     plt.close()
-
-
-def plot_cosine_histogram(cos_vals, labels, title, save_dir):
-    pos, neg = cos_vals[labels == 1], cos_vals[labels == 0]
-    plt.figure(figsize=(7, 5))
-    plt.hist(neg, bins=40, alpha=0.6, density=True, label="negative")
-    plt.hist(pos, bins=40, alpha=0.6, density=True, label="positive")
-    plt.xlabel("eT · ePH cosine similarity")
-    plt.ylabel("density")
-    plt.title(title)
-    plt.legend()
-    plt.tight_layout()
-    safe = title.replace(" ", "_").replace("/", "_")
-    plt.savefig(save_dir / f"{safe}.png")
-    plt.close()
-
 
 def plot_cross_reactivity_zT(zT, pair_ids, labels, pep_lookup, title, save_dir, min_group_size=2, random_n=5000, seed=42):
     rng = np.random.default_rng(seed)
@@ -437,7 +400,6 @@ def plot_cross_reactivity_zT(zT, pair_ids, labels, pep_lookup, title, save_dir, 
         msg += f" | MWU p={p_val:.3e}"
     log.info(msg)
 
-
 def plot_training_history(history, save_dir, prefix=""):
     epochs = range(1, len(history["train_loss"]) + 1)
 
@@ -455,7 +417,6 @@ def plot_training_history(history, save_dir, prefix=""):
     plt.figure(figsize=(7, 5))
     plt.plot(epochs, history["val_auroc"], label="val AUROC")
     plt.plot(epochs, history["val_auprc"], label="val AUPRC")
-    plt.plot(epochs, history["val_auroc_ema"], label="val AUROC EMA")
     plt.xlabel("epoch")
     plt.ylabel("metric")
     plt.title(f"{prefix} Metrics")
@@ -463,28 +424,6 @@ def plot_training_history(history, save_dir, prefix=""):
     plt.tight_layout()
     plt.savefig(save_dir / f"{prefix}_metrics.png")
     plt.close()
-
-
-def plot_epoch_diagnostics(val_out, epoch, pep_lookup, run_tag, save_dir):
-    labels = val_out["labels"]
-    ep_dir = save_dir / run_tag
-    ep_dir.mkdir(parents=True, exist_ok=True)
-    plot_H_histogram(
-        val_out["H"],
-        labels,
-        f"{run_tag}_val_H_ep{epoch}",
-        ep_dir,
-        threshold=val_out["metrics"]["threshold"],
-    )
-    plot_cosine_histogram(val_out["cos"], labels, f"{run_tag}_val_cos_ep{epoch}", ep_dir)
-    plot_cross_reactivity_zT(
-        val_out["zT"],
-        val_out["pair_ids"],
-        labels,
-        pep_lookup,
-        f"{run_tag}_val_xreact_ep{epoch}",
-        ep_dir,
-    )
 
 # ============================================================
 # FORWARD + EVALUATE
@@ -514,23 +453,20 @@ def forward_batch(batch, tcr_proj, pmhc_proj, device, eps=EPS):
         "zPH": zPH,
         "cos": cos.cpu().numpy(),
         "H": H.cpu().numpy(),
-        "scores": H.cpu().numpy(),  # operative score: lower/more negative is more binder-like
         "labels": labels,
         "pair_ids": batch["pair_id"],
     }
 
-
 @torch.no_grad()
-def evaluate_loader(loader, tcr_proj, pmhc_proj, device, alpha=1.0, beta=25.0, delta=5.0, gamma_var=1.0, eps=EPS):
+def evaluate_loader(loader, tcr_proj, pmhc_proj, device, alpha=1.0, beta=25.0, delta=1.0, gamma_var=1.0, eps=EPS):
     tcr_proj.eval()
     pmhc_proj.eval()
 
-    all_s, all_H, all_cos, all_lab, all_pid, all_zT = [], [], [], [], [], []
+    all_H, all_cos, all_lab, all_pid, all_zT = [], [], [], [], []
     running_loss, n_steps = 0.0, 0
 
     for batch in loader:
         out = forward_batch(batch, tcr_proj, pmhc_proj, device, eps)
-        all_s.append(out["scores"])
         all_H.append(out["H"])
         all_cos.append(out["cos"])
         all_lab.append(out["labels"])
@@ -543,23 +479,19 @@ def evaluate_loader(loader, tcr_proj, pmhc_proj, device, alpha=1.0, beta=25.0, d
         running_loss += loss.item()
         n_steps += 1
 
-    scores = np.concatenate(all_s)     # H
     H_vals = np.concatenate(all_H)
     cos_vals = np.concatenate(all_cos)
     labels = np.concatenate(all_lab).astype(int)
     zT = np.concatenate(all_zT, axis=0)
 
-    thr = find_best_threshold(scores, labels)
-    ranking_scores = -scores  # higher means more positive for AUROC / AUPRC
+    ranking_scores = -H_vals  # higher = more positive for AUROC / AUPRC
     metrics = {
         "auroc": float(roc_auc_score(labels, ranking_scores)),
         "auprc": float(average_precision_score(labels, ranking_scores)),
         "val_loss": float(running_loss / max(n_steps, 1)),
-        **thr,
     }
 
     return {
-        "scores": scores,
         "H": H_vals,
         "cos": cos_vals,
         "zT": zT,
@@ -579,37 +511,24 @@ def make_scheduler(optimizer, total_epochs, warmup_epochs):
         return 0.5 * (1.0 + np.cos(np.pi * progress))
     return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
+def run_experiment_for_seed(train_loader, val_loader, test_loader, device, seed, cfg):
+    set_global_seed(seed)
 
-def run_experiment(
-    train_loader,
-    val_loader,
-    device,
-    pep_lookup_val,
-    rL=4,
-    rD=8,
-    lr=5e-5,
-    weight_decay=1e-2,
-    alpha=1.0,
-    beta=25.0,
-    delta=5.0,
-    gamma_var=1.0,
-    run_tag="cfg0",
-):
     sample = train_loader.dataset[0]
     L_T = sample["emb_T"].shape[1]
     L_P = sample["emb_P"].shape[1]
     L_H = sample["emb_H"].shape[1]
     D_esm = sample["emb_T"].shape[2]
 
-    tcr_proj = ESMProjectionHead(D_esm, rL, rD, D, L_max=L_T).to(device)
-    pmhc_proj = PMHCProjectionHead(D_esm, rL, rD, D, L_P_max=L_P, L_H_max=L_H, R_PH=R_PH).to(device)
+    tcr_proj = ESMProjectionHead(D_esm, cfg["rL"], cfg["rD"], D, L_max=L_T).to(device)
+    pmhc_proj = PMHCProjectionHead(D_esm, cfg["rL"], cfg["rD"], D, L_P_max=L_P, L_H_max=L_H, R_PH=R_PH).to(device)
 
     optimizer = torch.optim.AdamW(
         [
-            {"params": tcr_proj.parameters(), "lr": lr},
-            {"params": pmhc_proj.parameters(), "lr": lr},
+            {"params": tcr_proj.parameters(), "lr": cfg["lr"]},
+            {"params": pmhc_proj.parameters(), "lr": cfg["lr"]},
         ],
-        weight_decay=weight_decay,
+        weight_decay=cfg["wd"],
     )
     scheduler = make_scheduler(optimizer, NUM_EPOCHS, WARMUP_EPOCHS)
 
@@ -618,14 +537,12 @@ def run_experiment(
         "val_loss": [],
         "val_auroc": [],
         "val_auprc": [],
-        "val_f1": [],
-        "val_auroc_ema": [],
     }
-    auroc_window = deque(maxlen=EMA_WINDOW)
 
-    best_score = -float("inf")
+    best_auroc = -float("inf")
     best_state = None
     bad_epochs = 0
+    run_tag = f"seed_{seed}"
 
     for epoch in range(NUM_EPOCHS):
         tcr_proj.train()
@@ -642,13 +559,13 @@ def run_experiment(
 
             zT = tcr_proj(eT, mT)
             zPH = pmhc_proj(eP, mP, eH, mH)
+
             loss, _ = vicreg_hamiltonian_loss(
-                zT,
-                zPH,
-                alpha=alpha,
-                beta=beta,
-                delta=delta,
-                gamma_var=gamma_var,
+                zT, zPH,
+                alpha=cfg["alpha"],
+                beta=cfg["beta"],
+                delta=DELTA,
+                gamma_var=GAMMA_VAR,
             )
 
             optimizer.zero_grad(set_to_none=True)
@@ -660,107 +577,142 @@ def run_experiment(
             n_steps += 1
 
         scheduler.step()
-        train_loss = running_loss / max(n_steps, 1)
-        history["train_loss"].append(train_loss)
 
-        val_out = evaluate_loader(val_loader, tcr_proj, pmhc_proj, device, alpha, beta, delta, gamma_var)
+        train_loss = running_loss / max(n_steps, 1)
+        val_out = evaluate_loader(
+            val_loader, tcr_proj, pmhc_proj, device,
+            alpha=cfg["alpha"], beta=cfg["beta"], delta=DELTA, gamma_var=GAMMA_VAR
+        )
         val_loss = val_out["metrics"]["val_loss"]
         val_auroc = val_out["metrics"]["auroc"]
         val_auprc = val_out["metrics"]["auprc"]
-        val_f1 = val_out["metrics"]["f1"]
-        val_thr = val_out["metrics"]["threshold"]
 
+        history["train_loss"].append(train_loss)
         history["val_loss"].append(val_loss)
         history["val_auroc"].append(val_auroc)
         history["val_auprc"].append(val_auprc)
-        history["val_f1"].append(val_f1)
-
-        auroc_window.append(val_auroc)
-        val_auroc_ema = float(np.mean(auroc_window))
-        history["val_auroc_ema"].append(val_auroc_ema)
 
         log.info(
-            f"  [{run_tag}] ep{epoch+1}/{NUM_EPOCHS} tl={train_loss:.4f} vl={val_loss:.4f} "
-            f"auroc={val_auroc:.4f} auprc={val_auprc:.4f} f1={val_f1:.4f} "
-            f"thr={val_thr:.6f} dir=<= auroc_ema={val_auroc_ema:.4f}"
+            f"[{run_tag}] ep{epoch+1}/{NUM_EPOCHS} "
+            f"tl={train_loss:.4f} vl={val_loss:.4f} "
+            f"auroc={val_auroc:.4f} auprc={val_auprc:.4f}"
         )
-        log_score_stats(f"  [{run_tag}] VAL", val_out["scores"], val_out["labels"])
+        log_H_stats(f"[{run_tag}] VAL", val_out["H"], val_out["labels"])
 
         if (epoch + 1) % PLOT_EVERY_N_EPOCHS == 0 or epoch == 0:
-            plot_epoch_diagnostics(val_out, epoch + 1, pep_lookup_val, run_tag, FIGURE_SUBDIR)
+            plot_H_histogram(
+                val_out["H"], val_out["labels"],
+                f"{run_tag}_val_H_ep{epoch+1}", FIGURE_SUBDIR
+            )
+            plot_cross_reactivity_zT(
+                val_out["zT"], val_out["pair_ids"], val_out["labels"],
+                pep_lookup_val, f"{run_tag}_val_xreact_ep{epoch+1}", FIGURE_SUBDIR, seed=seed
+            )
 
-        current_score = val_auroc_ema
-        if current_score > best_score + 1e-4:
-            best_score = current_score
+        if val_auroc > best_auroc + 1e-4:
+            best_auroc = val_auroc
             bad_epochs = 0
             best_state = {
                 "epoch": epoch + 1,
                 "val_auroc": val_auroc,
-                "val_auroc_ema": val_auroc_ema,
                 "val_loss": val_loss,
                 "tcr_proj": copy.deepcopy(tcr_proj.state_dict()),
                 "pmhc_proj": copy.deepcopy(pmhc_proj.state_dict()),
-                "val_metrics": val_out["metrics"],
-                "val_outputs": val_out,
-                "config": {
-                    "rL": rL,
-                    "rD": rD,
-                    "d": D,
-                    "R_PH": R_PH,
-                    "lr": lr,
-                    "weight_decay": weight_decay,
-                    "alpha": alpha,
-                    "beta": beta,
-                    "delta": delta,
-                    "gamma_var": gamma_var,
-                },
+                "history": copy.deepcopy(history),
             }
-            torch.save(
-                {
-                    "tcr_projection_state_dict": tcr_proj.state_dict(),
-                    "pmhc_projection_state_dict": pmhc_proj.state_dict(),
-                    "best_config": best_state["config"],
-                    "best_val_metrics": val_out["metrics"],
-                    "best_val_outputs": val_out,
-                    "history": history,
-                    "best_epoch": epoch + 1,
-                },
-                SAVE_DIR / f"best_{run_tag}.pt",
-            )
-            log.info(
-                f"  -> New best EMA-AUROC={val_auroc_ema:.4f} (raw AUROC={val_auroc:.4f}) ep{epoch+1}, saved"
-            )
+            log.info(f"[{run_tag}] -> new best AUROC={val_auroc:.4f} at ep{epoch+1}")
         else:
             if epoch + 1 >= MIN_EPOCHS_BEFORE_EARLY_STOP:
                 bad_epochs += 1
 
         if bad_epochs >= PATIENCE:
-            log.info(f"  Early stop at ep{epoch+1} (patience={PATIENCE})")
+            log.info(f"[{run_tag}] early stop at ep{epoch+1}")
             break
 
     if best_state is None:
-        raise RuntimeError(f"No best state saved for run {run_tag}")
+        raise RuntimeError(f"No best state saved for seed {seed}")
 
+    # Reload best model
     tcr_proj.load_state_dict(best_state["tcr_proj"])
     pmhc_proj.load_state_dict(best_state["pmhc_proj"])
 
-    best_state["threshold"] = best_state["val_metrics"]["threshold"]
-    best_state["threshold_direction"] = best_state["val_metrics"]["direction"]
+    # Final val threshold on H only
+    best_val_out = evaluate_loader(
+        val_loader, tcr_proj, pmhc_proj, device,
+        alpha=cfg["alpha"], beta=cfg["beta"], delta=DELTA, gamma_var=GAMMA_VAR
+    )
+    val_thr = find_best_threshold_on_H(best_val_out["H"], best_val_out["labels"])
+
+    # Final test eval
+    test_out = evaluate_loader(
+        test_loader, tcr_proj, pmhc_proj, device,
+        alpha=cfg["alpha"], beta=cfg["beta"], delta=DELTA, gamma_var=GAMMA_VAR
+    )
+    preds = apply_threshold(test_out["H"], val_thr["threshold"])
+    labels = test_out["labels"]
+    test_bin = compute_binary_metrics(labels, preds)
+
+    log.info(
+        f"[{run_tag}] FINAL TEST | thr={val_thr['threshold']:.6f} on H | "
+        f"pred_pos={int(preds.sum())} pred_neg={int((1-preds).sum())}"
+    )
+    log_H_stats(f"[{run_tag}] TEST", test_out["H"], labels)
+    log.info(
+        f"[{run_tag}] TEST METRICS | "
+        f"auroc={test_out['metrics']['auroc']:.4f} "
+        f"auprc={test_out['metrics']['auprc']:.4f} "
+        f"f1={test_bin['f1']:.4f} "
+        f"acc={test_bin['accuracy']:.4f} "
+        f"prec={test_bin['precision']:.4f} "
+        f"rec={test_bin['recall']:.4f}"
+    )
+    log.info(f"[{run_tag}] TEST CONFUSION:\n{confusion_matrix(labels, preds)}")
+
+    # Save artefacts per seed
+    torch.save(
+        {
+            "seed": seed,
+            "config": cfg,
+            "best_epoch": best_state["epoch"],
+            "val_threshold_H": val_thr,
+            "history": best_state["history"],
+            "test_metrics": {
+                "auroc": test_out["metrics"]["auroc"],
+                "auprc": test_out["metrics"]["auprc"],
+                **test_bin,
+            },
+        },
+        SAVE_DIR / f"baseline_seed_{seed}.pt"
+    )
+
+    plot_H_histogram(test_out["H"], labels, f"{run_tag}_test_H_best", FIGURE_SUBDIR, threshold=val_thr["threshold"])
+    plot_cross_reactivity_zT(
+        test_out["zT"], test_out["pair_ids"], labels,
+        pep_lookup_test, f"{run_tag}_test_xreact_best", FIGURE_SUBDIR, seed=seed
+    )
+    plot_training_history(best_state["history"], FIGURE_SUBDIR, prefix=run_tag)
 
     return {
-        "tcr_proj": tcr_proj,
-        "pmhc_proj": pmhc_proj,
-        "history": history,
-        "best_state": best_state,
+        "seed": seed,
+        "best_epoch": best_state["epoch"],
+        "val_auroc": best_val_out["metrics"]["auroc"],
+        "val_auprc": best_val_out["metrics"]["auprc"],
+        "val_threshold_H": val_thr["threshold"],
+        "test_auroc": test_out["metrics"]["auroc"],
+        "test_auprc": test_out["metrics"]["auprc"],
+        "test_f1": test_bin["f1"],
+        "test_accuracy": test_bin["accuracy"],
+        "test_precision": test_bin["precision"],
+        "test_recall": test_bin["recall"],
     }
 
 # ============================================================
 # MAIN
 # ============================================================
 def main():
-    set_global_seed(SEED)
-
-    log.info(f"Seed: {SEED}")
+    log.info("Starting seed-stability baseline run")
+    log.info(f"Fixed config: {FIXED_CFG}")
+    log.info(f"Seeds: {SEEDS}")
     log.info(
         f"Peptide lookups: train={len(pep_lookup_train)}, val={len(pep_lookup_val)}, test={len(pep_lookup_test)}"
     )
@@ -779,96 +731,28 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=0, collate_fn=lambda x: x[0])
 
     log.info(f"Loaders: train={len(train_loader)}, val={len(val_loader)}, test={len(test_loader)}")
-    log.info(f"Running focused stability sweep: {len(SEARCH_SPACE)} configs | plots every {PLOT_EVERY_N_EPOCHS} epochs")
 
     all_results = []
-    best_global_score = -float("inf")
-    best_result = None
+    for seed in SEEDS:
+        log.info("\n" + "=" * 72)
+        log.info(f"Running seed {seed}")
+        result = run_experiment_for_seed(train_loader, val_loader, test_loader, device, seed, FIXED_CFG)
+        all_results.append(result)
 
-    for ci, cfg in enumerate(SEARCH_SPACE):
-        tag = f"cfg{ci}"
-        log.info(f"\n===== Config {ci+1}/{len(SEARCH_SPACE)}: {cfg} =====")
+    df = pd.DataFrame(all_results)
+    df.to_csv(SAVE_DIR / "seed_stability_summary.csv", index=False)
 
-        result = run_experiment(
-            train_loader,
-            val_loader,
-            device,
-            pep_lookup_val,
-            rL=cfg["rL"],
-            rD=cfg["rD"],
-            lr=cfg["lr"],
-            weight_decay=cfg["wd"],
-            alpha=cfg["alpha"],
-            beta=cfg["beta"],
-            delta=DELTA,
-            gamma_var=GAMMA_VAR,
-            run_tag=tag,
-        )
+    log.info("\n" + "=" * 72)
+    log.info("SEED STABILITY SUMMARY")
+    log.info("\n" + df.to_string(index=False))
 
-        raw_auroc = result["best_state"]["val_auroc"]
-        ema_auroc = result["best_state"]["val_auroc_ema"]
-        all_results.append(
-            {
-                "config": cfg,
-                "val_auroc": raw_auroc,
-                "val_auroc_ema": ema_auroc,
-                "epoch": result["best_state"]["epoch"],
-                "threshold": result["best_state"]["threshold"],
-                "direction": result["best_state"]["threshold_direction"],
-            }
-        )
+    for metric in ["val_auroc", "test_auroc", "test_auprc", "test_f1"]:
         log.info(
-            f"Config {ci+1} best raw AUROC: {raw_auroc:.4f} | best EMA AUROC: {ema_auroc:.4f} at epoch {result['best_state']['epoch']}"
+            f"{metric}: mean={df[metric].mean():.4f} std={df[metric].std(ddof=1):.4f}"
         )
 
-        if ema_auroc > best_global_score:
-            best_global_score = ema_auroc
-            best_result = result
-
-    if best_result is None:
-        raise RuntimeError("No best result found across HPO configs")
-
-    log.info(f"\n===== GLOBAL BEST EMA AUROC: {best_global_score:.4f} =====")
-    log.info(f"Config: {best_result['best_state']['config']}")
-
-    best_thr = best_result["best_state"]["threshold"]
-
-    test_out = evaluate_loader(
-        test_loader,
-        best_result["tcr_proj"],
-        best_result["pmhc_proj"],
-        device,
-        alpha=best_result["best_state"]["config"]["alpha"],
-        beta=best_result["best_state"]["config"]["beta"],
-        delta=best_result["best_state"]["config"]["delta"],
-        gamma_var=best_result["best_state"]["config"]["gamma_var"],
-    )
-
-    preds = apply_threshold(test_out["scores"], best_thr)
-    labels = test_out["labels"]
-    test_bin = compute_binary_metrics(labels, preds)
-
-    log.info(
-        f"\n[TEST] using threshold={best_thr:.6f} direction=<= | pred_pos={int(preds.sum())} pred_neg={int((1-preds).sum())}"
-    )
-    log_score_stats("[TEST]", test_out["scores"], labels)
-    log.info(f"Test AUROC: {test_out['metrics']['auroc']:.4f}")
-    log.info(f"Test AUPRC: {test_out['metrics']['auprc']:.4f}")
-    log.info(f"Test F1: {test_bin['f1']:.4f}")
-    log.info(f"Test accuracy: {test_bin['accuracy']:.4f}")
-    log.info(f"Test precision: {test_bin['precision']:.4f}")
-    log.info(f"Test recall: {test_bin['recall']:.4f}")
-    log.info(f"Test confusion:\n{confusion_matrix(labels, preds)}")
-
-    plot_H_histogram(test_out["H"], labels, "test_H_best", FIGURE_SUBDIR, threshold=best_thr)
-    plot_cosine_histogram(test_out["cos"], labels, "test_cos_best", FIGURE_SUBDIR)
-    plot_cross_reactivity_zT(test_out["zT"], test_out["pair_ids"], labels, pep_lookup_test, "test_xreact_best", FIGURE_SUBDIR)
-    plot_training_history(best_result["history"], FIGURE_SUBDIR, prefix="best_config")
-
-    pd.DataFrame(all_results).to_csv(SAVE_DIR / "hpo_summary.csv", index=False)
-    log.info(f"HPO summary saved to {SAVE_DIR / 'hpo_summary.csv'}")
+    log.info(f"Saved summary to {SAVE_DIR / 'seed_stability_summary.csv'}")
     log.info("Done.")
-
 
 if __name__ == "__main__":
     main()
