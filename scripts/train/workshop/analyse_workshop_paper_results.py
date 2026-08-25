@@ -124,6 +124,7 @@ class RunConfig:
     skip_tsne: bool
     skip_duplicate_baselines_from_raw_runs: bool
     random_seed: int
+    cache_merged_reps: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -135,10 +136,35 @@ def mkdir(path: Path) -> Path:
     return path
 
 
+# Subdirectory layout under paper_analysis/ (kept in sync with README.md).
+ARTIFACT_SUBDIR = {
+    "paper_main_table.csv": "tables",
+    "paper_ablation_deltas.csv": "tables",
+    "paper_model_metrics_long.csv": "tables",
+    "paper_model_metrics_summary.csv": "tables",
+    "score_distribution_summary.csv": "score_distributions",
+    "representation_similarity.csv": "representation_similarity",
+    "effective_rank.csv": "effective_rank",
+    "crossreactivity_within_between.csv": "crossreactivity",
+    "crossreactivity_pair_auc.csv": "crossreactivity",
+    "knn_peptide_purity.csv": "crossreactivity",
+    "peptide_frequency_compactness.csv": "nuisance",
+    "nuisance_correlations.csv": "nuisance",
+    "diagnostics_manifest.csv": "meta",
+    "diagnostics_run_config.json": "meta",
+}
+
+
+def artifact_path(out_dir: Path, name: str) -> Path:
+    sub = ARTIFACT_SUBDIR.get(name, "")
+    base = mkdir(out_dir / sub) if sub else out_dir
+    return base / name
+
+
 def write_manifest(rows: List[Dict], out_dir: Path) -> None:
     if not rows:
         return
-    pd.DataFrame(rows).to_csv(out_dir / "diagnostics_manifest.csv", index=False)
+    pd.DataFrame(rows).to_csv(artifact_path(out_dir, "diagnostics_manifest.csv"), index=False)
 
 
 def finite_float(x) -> float:
@@ -318,7 +344,7 @@ def consolidate_metrics(cfg: RunConfig, out_dir: Path, manifest: List[Dict]) -> 
     if long_df.empty:
         raise FileNotFoundError("No summary rows found. Check --run-names, --seeds and --outputs-root.")
     long_df = sort_model_df(long_df)
-    long_path = out_dir / "paper_model_metrics_long.csv"
+    long_path = artifact_path(out_dir, "paper_model_metrics_long.csv")
     long_df.to_csv(long_path, index=False)
     manifest.append({"artifact": "paper_model_metrics_long", "path": str(long_path), "description": "Flattened seed-level metrics across run folders."})
 
@@ -345,7 +371,7 @@ def consolidate_metrics(cfg: RunConfig, out_dir: Path, manifest: List[Dict]) -> 
         grouped_rows.append(row)
 
     summary_df = sort_model_df(pd.DataFrame(grouped_rows))
-    summary_path = out_dir / "paper_model_metrics_summary.csv"
+    summary_path = artifact_path(out_dir, "paper_model_metrics_summary.csv")
     summary_df.to_csv(summary_path, index=False)
     manifest.append({"artifact": "paper_model_metrics_summary", "path": str(summary_path), "description": "Mean/std metrics by model and split."})
 
@@ -356,12 +382,12 @@ def consolidate_metrics(cfg: RunConfig, out_dir: Path, manifest: List[Dict]) -> 
             if c in summary_df.columns:
                 compact_cols.append(c)
     compact_df = summary_df[[c for c in compact_cols if c in summary_df.columns]].copy()
-    compact_path = out_dir / "paper_main_table.csv"
+    compact_path = artifact_path(out_dir, "paper_main_table.csv")
     compact_df.to_csv(compact_path, index=False)
     manifest.append({"artifact": "paper_main_table", "path": str(compact_path), "description": "Compact paper-facing metric table."})
 
     deltas = compute_ablation_deltas(summary_df)
-    delta_path = out_dir / "paper_ablation_deltas.csv"
+    delta_path = artifact_path(out_dir, "paper_ablation_deltas.csv")
     deltas.to_csv(delta_path, index=False)
     manifest.append({"artifact": "paper_ablation_deltas", "path": str(delta_path), "description": "Controlled performance deltas for interpretation."})
 
@@ -490,7 +516,7 @@ def score_distribution_diagnostics(cfg: RunConfig, out_dir: Path, fig_dir: Path,
             "global_auc0.1_mcclish": safe_mcclish_auc(y, score),
         })
     score_summary = sort_model_df(pd.DataFrame(rows))
-    out_path = out_dir / "score_distribution_summary.csv"
+    out_path = artifact_path(out_dir, "score_distribution_summary.csv")
     score_summary.to_csv(out_path, index=False)
     manifest.append({"artifact": "score_distribution_summary", "path": str(out_path), "description": "Positive/negative MSE separation by model and split."})
 
@@ -622,6 +648,16 @@ def load_representations_for_seed_split(cfg: RunConfig, seed: int, split: str) -
 
 
 def cache_representations(cfg: RunConfig, out_dir: Path, manifest: List[Dict]) -> None:
+    """Optional merged latent cache. Prefer reading per-run latents directly.
+
+    Skipped unless cfg.cache_merged_reps is True — the merged NPZ tree is large and
+    redundant with seed-level latents already stored under each model output dir.
+    """
+    if not getattr(cfg, "cache_merged_reps", False):
+        print("Skipping merged reps cache (use --cache-merged-reps to enable).", flush=True)
+        return
+    # Keep original function name compatibility if renamed on disk.
+    fn_name = "cache_reps"
     rep_dir = mkdir(out_dir / "representations")
     for seed in cfg.seeds:
         for split in cfg.splits:
@@ -632,7 +668,11 @@ def cache_representations(cfg: RunConfig, out_dir: Path, manifest: List[Dict]) -
             out.update(arrays)
             p = rep_dir / f"seed_{seed}_{split}_representations.npz"
             np.savez_compressed(p, **out)
-            manifest.append({"artifact": f"representations_seed{seed}_{split}", "path": str(p), "description": "Merged latent representation cache from available runs."})
+            manifest.append({
+                "artifact": f"representations_seed{seed}_{split}",
+                "path": str(p),
+                "description": "Merged latent representation cache from available runs.",
+            })
 
 
 # ---------------------------------------------------------------------------
@@ -732,7 +772,7 @@ def representation_similarity_diagnostics(cfg: RunConfig, out_dir: Path, fig_dir
                             "pairwise_distance_spearman": pairwise_distance_corr(Xs, Ys, cfg.max_pair_distance_pairs, seed + 31)[1],
                         })
     df = pd.DataFrame(rows)
-    out_path = out_dir / "representation_similarity.csv"
+    out_path = artifact_path(out_dir, "representation_similarity.csv")
     df.to_csv(out_path, index=False)
     manifest.append({"artifact": "representation_similarity", "path": str(out_path), "description": "CKA, Procrustes and pairwise-distance correlations between latent spaces."})
 
@@ -836,7 +876,7 @@ def effective_rank_diagnostics(cfg: RunConfig, out_dir: Path, fig_dir: Path, man
                     if seed == cfg.plot_seed and label_subset == "all":
                         spectra[(split, model, side)] = s
     df = sort_model_df(pd.DataFrame(rows)) if rows else pd.DataFrame()
-    out_path = out_dir / "effective_rank.csv"
+    out_path = artifact_path(out_dir, "effective_rank.csv")
     df.to_csv(out_path, index=False)
     manifest.append({
         "artifact": "effective_rank",
@@ -1092,7 +1132,7 @@ def crossreactivity_diagnostics(cfg: RunConfig, out_dir: Path, fig_dir: Path, ma
         ("knn_peptide_purity.csv", knn_df, "kNN peptide purity and entropy in TCR latent spaces."),
         ("peptide_frequency_compactness.csv", pep_df, "Peptide-wise compactness after balanced sampling."),
     ]:
-        p = out_dir / name
+        p = artifact_path(out_dir, name)
         df.to_csv(p, index=False)
         manifest.append({"artifact": name.replace(".csv", ""), "path": str(p), "description": desc})
 
@@ -1245,7 +1285,7 @@ def nuisance_correlation_diagnostics(cfg: RunConfig, out_dir: Path, fig_dir: Pat
                     "spearman_rho": spearman,
                 })
     df = sort_model_df(pd.DataFrame(rows)) if rows else pd.DataFrame()
-    p = out_dir / "nuisance_correlations.csv"
+    p = artifact_path(out_dir, "nuisance_correlations.csv")
     df.to_csv(p, index=False)
     manifest.append({"artifact": "nuisance_correlations", "path": str(p), "description": "Correlation of MSE distances with length variables."})
 
@@ -1353,7 +1393,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--analysis-out-dir", default="/home/natasha/multimodal_model/models/outputs/workshop/paper_analysis")
     parser.add_argument("--analysis-fig-dir", default="/home/natasha/multimodal_model/models/figures/workshop/paper_analysis")
     parser.add_argument("--run-names", nargs="+", default=["onehot_vicreg_complete", "esm_vicreg_raw_complete", "esm_vicreg_finetuned_complete"])
-    parser.add_argument("--seeds", nargs="+", type=int, default=[31, 37, 43])
+    parser.add_argument("--seeds", nargs="+", type=int, default=[31, 37, 43, 49, 55])
     parser.add_argument("--plot-seed", type=int, default=31)
     parser.add_argument("--splits", nargs="+", default=["val", "test", "immrep_test"])
     parser.add_argument("--min-group-size", type=int, default=5)
@@ -1366,6 +1406,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--skip-tsne", action="store_true")
     parser.add_argument("--include-duplicate-baselines-from-raw-runs", action="store_true")
     parser.add_argument("--random-seed", type=int, default=31)
+    parser.add_argument(
+        "--cache-merged-reps",
+        action="store_true",
+        help="Write a merged NPZ cache under paper_analysis/reps/ (large; off by default).",
+    )
     return parser.parse_args()
 
 
@@ -1390,15 +1435,16 @@ def main() -> None:
         skip_tsne=args.skip_tsne,
         skip_duplicate_baselines_from_raw_runs=not args.include_duplicate_baselines_from_raw_runs,
         random_seed=args.random_seed,
+        cache_merged_reps=args.cache_merged_reps,
     )
 
     out_dir = mkdir(Path(cfg.analysis_out_dir))
     fig_dir = mkdir(Path(cfg.analysis_fig_dir))
     manifest: List[Dict] = []
 
-    with open(out_dir / "diagnostics_run_config.json", "w") as f:
+    with open(artifact_path(out_dir, "diagnostics_run_config.json"), "w") as f:
         json.dump(asdict(cfg), f, indent=2)
-    manifest.append({"artifact": "diagnostics_run_config", "path": str(out_dir / "diagnostics_run_config.json"), "description": "Configuration for this analysis run."})
+    manifest.append({"artifact": "diagnostics_run_config", "path": str(artifact_path(out_dir, "diagnostics_run_config.json")), "description": "Configuration for this analysis run."})
 
     print("[1/7] Consolidating metrics", flush=True)
     consolidate_metrics(cfg, out_dir, manifest)

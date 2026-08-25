@@ -13,7 +13,8 @@ REPO = Path(__file__).resolve().parents[2]
 
 SPLITS: Dict[str, Dict[str, Path]] = {
     "train": {
-        "data": REPO / "data/train/train_df_clean.csv",
+        # Use the val/test-deduplicated positives to prevent train->val/test leakage.
+        "data": REPO / "data/train/train_df_clean_dedup_vs_valtest.csv",
         "manifest": REPO / "manifests/train_manifest.csv",
         "boltz_root": REPO / "outputs/train",
         "out": REPO / "data/train/train_multiview.csv",

@@ -1257,7 +1257,7 @@ def parse_args() -> argparse.Namespace:
         "--manifest-path",
         default=(
             "/home/natasha/multimodal_model/models/outputs/workshop/"
-            "paper_analysis/diagnostics_manifest.csv"
+            "paper_analysis/meta/diagnostics_manifest.csv"
         ),
     )
 
@@ -1270,7 +1270,7 @@ def parse_args() -> argparse.Namespace:
             "esm_vicreg_finetuned_complete",
         ],
     )
-    parser.add_argument("--seeds", nargs="+", type=int, default=[31, 37, 43])
+    parser.add_argument("--seeds", nargs="+", type=int, default=[31, 37, 43, 49, 55])
     parser.add_argument("--splits", nargs="+", default=["test", "immrep_test"])
 
     parser.add_argument("--min-positives", type=int, default=1)
@@ -1387,7 +1387,9 @@ def main() -> None:
         absolute_max_bin=args.absolute_max_bin,
         normalised_edges=args.normalised_edges,
     )
-    per_seed_path = out_dir / "per_peptide_seed_metrics.csv"
+    detail_dir = out_dir / "detail"
+    detail_dir.mkdir(parents=True, exist_ok=True)
+    per_seed_path = detail_dir / "per_peptide_seed_metrics.csv"
     per_seed.to_csv(per_seed_path, index=False)
 
     print("[5/8] Averaging peptide-level metrics across seeds", flush=True)
@@ -1430,7 +1432,7 @@ def main() -> None:
 
     print("[7/8] Computing learned-minus-baseline deltas", flush=True)
     delta_df = compute_model_deltas(peptide_mean)
-    delta_path = out_dir / "model_delta_per_peptide.csv"
+    delta_path = detail_dir / "model_delta_per_peptide.csv"
     delta_df.to_csv(delta_path, index=False)
 
     delta_absolute = summarise_delta_bins(

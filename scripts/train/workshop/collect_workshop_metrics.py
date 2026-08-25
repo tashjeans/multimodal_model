@@ -61,13 +61,26 @@ def main() -> None:
         default="/home/natasha/multimodal_model/models/outputs/workshop/consolidated",
         help="Where consolidated CSVs should be written.",
     )
+    parser.add_argument(
+        "--run-names",
+        nargs="+",
+        default=None,
+        help="If set, only collect these run folders under outputs-root.",
+    )
     args = parser.parse_args()
 
     outputs_root = Path(args.outputs_root)
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    summary_paths = sorted(outputs_root.glob("*/seed_*/summary.json"))
+    if args.run_names:
+        summary_paths = sorted(
+            p
+            for name in args.run_names
+            for p in (outputs_root / name).glob("seed_*/summary.json")
+        )
+    else:
+        summary_paths = sorted(outputs_root.glob("*/seed_*/summary.json"))
     if not summary_paths:
         raise FileNotFoundError(f"No summary.json files found under {outputs_root} using */seed_*/summary.json")
 

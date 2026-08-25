@@ -305,6 +305,9 @@ def main() -> None:
     tcr.load_state_dict(best["state"]["tcr"])
     pmhc.load_state_dict(best["state"]["pmhc"])
 
+    # Free train shard RAM before val/test/immrep final eval (caches can be ~tens of GB).
+    train_ds.clear_shard_cache()
+
     final_evals = {
         "val": evaluate(
             val_loader, tcr, pmhc, device, cfg, "val", cfg.save_latents,

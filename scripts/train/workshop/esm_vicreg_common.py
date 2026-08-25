@@ -244,26 +244,35 @@ class PairedESMRowDataset(Dataset):
             flush=True,
         )
 
-        self._cache_ft_path = None
-        self._cache_ft_data = None
-        self._cache_pre_path = None
-        self._cache_pre_data = None
+        # Keep every loaded shard in RAM. A single-slot cache thrashs under DataLoader
+        # shuffle (train reloads ~GB .pt files almost every sample). Values and sample
+        # order are unchanged; only repeated torch.load I/O is removed.
+        self._ft_shard_cache: Dict[str, object] = {}
+        self._pre_shard_cache: Dict[str, object] = {}
 
     def __len__(self) -> int:
         return len(self.pair_ids)
 
+    def clear_shard_cache(self) -> None:
+        self._ft_shard_cache.clear()
+        self._pre_shard_cache.clear()
+
     def _load(self, sp: Path, branch: str):
+        key = str(sp)
         if branch == "ft":
-            if self._cache_ft_path != sp:
-                self._cache_ft_data = torch.load(sp, map_location="cpu")
-                self._cache_ft_path = sp
-            return self._cache_ft_data
-        if branch == "pre":
-            if self._cache_pre_path != sp:
-                self._cache_pre_data = torch.load(sp, map_location="cpu")
-                self._cache_pre_path = sp
-            return self._cache_pre_data
-        raise ValueError(branch)
+            cache = self._ft_shard_cache
+        elif branch == "pre":
+            cache = self._pre_shard_cache
+        else:
+            raise ValueError(branch)
+        if key not in cache:
+            cache[key] = torch.load(sp, map_location="cpu")
+            print(
+                f"{self.source_name}: cached {branch} shard {Path(key).name} "
+                f"({len(cache)} unique shards)",
+                flush=True,
+            )
+        return cache[key]
 
     def __getitem__(self, idx: int) -> Dict:
         pid = self.pair_ids[idx]

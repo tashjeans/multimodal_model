@@ -21,9 +21,10 @@ import copy
 import json
 import random
 import shutil
+from collections import Counter, defaultdict
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 import matplotlib
 matplotlib.use("Agg")
@@ -740,6 +741,157 @@ class RunConfig:
 
     save_latents: bool = False
     overwrite: bool = False
+    # Negative control: permute pMHC (peptide+HLA jointly) across training TCRs.
+    shuffle_train_pmhc: bool = False
+
+
+def shuffle_train_pmhc_assignments(meta: pd.DataFrame, seed: int) -> pd.DataFrame:
+    """Keep TCR rows fixed; reassign intact (peptide, HLA) units under constraints.
+
+    Constraints (strong negative control):
+      - peptide and HLA stay paired as a unit (joint permute)
+      - training only (caller must not shuffle val/test)
+      - bijection: every TCR row and every pMHC unit used exactly once
+      - no rematched recorded training-positive triple
+        (TCR_i, pep_j, HLA_j) ∉ original train triples for all assigned rows
+      - implies no unchanged cognate diagonal
+
+    Uses a degree-ordered greedy matching over pMHC-unit pools, with restarts.
+    """
+    out = meta.reset_index(drop=True).copy()
+    n = len(out)
+    if n == 0:
+        return out
+
+    pmhc_cols = [
+        c for c in [
+            "Peptide_norm",
+            "HLA_sequence_norm",
+            "peptide_for_eval",
+            "pep_len",
+            "hla_len",
+        ] if c in out.columns
+    ]
+    if "Peptide_norm" not in out.columns or "HLA_sequence_norm" not in out.columns:
+        raise RuntimeError("shuffle_train_pmhc: expected Peptide_norm/HLA_sequence_norm columns missing")
+    if "TCR_full_norm" not in out.columns:
+        raise RuntimeError("shuffle_train_pmhc: expected TCR_full_norm column missing")
+
+    tcr = out["TCR_full_norm"].astype(str).to_numpy()
+    pep = out["Peptide_norm"].astype(str).to_numpy()
+    hla = out["HLA_sequence_norm"].astype(str).to_numpy()
+    orig_triples = set(zip(tcr.tolist(), pep.tolist(), hla.tolist()))
+
+    unit_keys: List[Tuple[str, str]] = list(zip(pep.tolist(), hla.tolist()))
+    unit_to_sources: Dict[Tuple[str, str], List[int]] = defaultdict(list)
+    for j, key in enumerate(unit_keys):
+        unit_to_sources[key].append(j)
+
+    # Forbidden pMHC units per TCR = units that recreate a recorded train triple.
+    tcr_forbidden_units: Dict[str, Set[Tuple[str, str]]] = defaultdict(set)
+    for i in range(n):
+        tcr_forbidden_units[tcr[i]].add(unit_keys[i])
+
+    unique_units = list(unit_to_sources.keys())
+    unit_id = {u: i for i, u in enumerate(unique_units)}
+    n_units = len(unique_units)
+    unit_of_row = np.array([unit_id[unit_keys[j]] for j in range(n)], dtype=np.int32)
+    forbidden_uids = [frozenset(unit_id[u] for u in tcr_forbidden_units[tcr[i]]) for i in range(n)]
+
+    # Feasibility: each unit's copies must fit into eligible recipients.
+    for key, sources in unit_to_sources.items():
+        uid = unit_id[key]
+        n_eligible = sum(1 for i in range(n) if uid not in forbidden_uids[i])
+        if n_eligible < len(sources):
+            raise RuntimeError(
+                f"shuffle_train_pmhc infeasible for pMHC {key}: "
+                f"copies={len(sources)} eligible_recipients={n_eligible}"
+            )
+
+    supply0 = np.bincount(unit_of_row, minlength=n_units)
+    static_deg = np.array(
+        [int(supply0.sum() - sum(int(supply0[u]) for u in forbidden_uids[i])) for i in range(n)],
+        dtype=np.int64,
+    )
+
+    def try_match(rng: np.random.Generator) -> Optional[np.ndarray]:
+        pools: List[List[int]] = [[] for _ in range(n_units)]
+        for j in range(n):
+            pools[int(unit_of_row[j])].append(j)
+        for uid in range(n_units):
+            rng.shuffle(pools[uid])
+
+        avail = supply0.copy()
+        perm = np.full(n, -1, dtype=np.int64)
+
+        order = np.argsort(static_deg, kind="mergesort")
+        i0 = 0
+        while i0 < n:
+            i1 = i0 + 1
+            while i1 < n and static_deg[order[i1]] == static_deg[order[i0]]:
+                i1 += 1
+            band = order[i0:i1].copy()
+            rng.shuffle(band)
+            order[i0:i1] = band
+            i0 = i1
+
+        for i in order:
+            i = int(i)
+            forbid = forbidden_uids[i]
+            # Eligible units with remaining supply; prefer scarcer residual capacity.
+            cand_uids = [uid for uid in range(n_units) if avail[uid] > 0 and uid not in forbid]
+            if not cand_uids:
+                return None
+            # Soft residual-tightness: sample among units with smallest remaining supply
+            # among those still eligible (helps high-multiplicity units).
+            rem = np.array([avail[uid] for uid in cand_uids], dtype=np.int64)
+            # Also weight by how many recipients still need slots — keep simple: min rem band
+            min_rem = int(rem.min())
+            tight = [cand_uids[k] for k, r in enumerate(rem) if int(r) == min_rem]
+            uid = int(tight[int(rng.integers(0, len(tight)))])
+            j = pools[uid].pop()
+            avail[uid] -= 1
+            perm[i] = j
+        return perm
+
+    rng = np.random.default_rng(seed)
+    perm: Optional[np.ndarray] = None
+    n_tries = 128
+    for attempt in range(1, n_tries + 1):
+        attempt_rng = np.random.default_rng(int(rng.integers(0, 2**63 - 1)))
+        perm = try_match(attempt_rng)
+        if perm is not None:
+            print(f"shuffle_train_pmhc: constrained match succeeded on attempt {attempt}", flush=True)
+            break
+    if perm is None:
+        raise RuntimeError(f"shuffle_train_pmhc: failed to find constrained matching in {n_tries} attempts")
+
+    for c in pmhc_cols:
+        out[c] = out[c].to_numpy()[perm]
+
+    new_pep = out["Peptide_norm"].astype(str).to_numpy()
+    new_hla = out["HLA_sequence_norm"].astype(str).to_numpy()
+    rematch = sum(1 for i in range(n) if (tcr[i], new_pep[i], new_hla[i]) in orig_triples)
+    same_pmhc_on_row = int(np.sum((new_pep == pep) & (new_hla == hla)))
+    idx_fp = int(np.sum(perm == np.arange(n)))
+    before_c = Counter(zip(pep.tolist(), hla.tolist()))
+    after_c = Counter(zip(new_pep.tolist(), new_hla.tolist()))
+    multiset_ok = before_c == after_c
+    bijection_ok = len(np.unique(perm)) == n
+
+    print(
+        f"shuffle_train_pmhc: n={n} | pmhc_cols={pmhc_cols} | rng_seed={seed} | "
+        f"n_unique_pmhc_units={n_units} | rematched_train_triples={rematch} | "
+        f"same_pmhc_on_row={same_pmhc_on_row} | index_fixed_points={idx_fp} | "
+        f"multiset_ok={multiset_ok} | bijection_ok={bijection_ok}",
+        flush=True,
+    )
+    if rematch != 0 or not multiset_ok or not bijection_ok:
+        raise RuntimeError(
+            f"shuffle_train_pmhc invariants violated: rematch={rematch} "
+            f"multiset_ok={multiset_ok} bijection_ok={bijection_ok}"
+        )
+    return out
 
 
 def loss_params(cfg: RunConfig) -> Dict:
@@ -817,6 +969,11 @@ def main() -> None:
     parser.add_argument("--partial-auc-max-fpr", type=float, default=RunConfig.partial_auc_max_fpr)
     parser.add_argument("--save-latents", action="store_true")
     parser.add_argument("--overwrite", action="store_true")
+    parser.add_argument(
+        "--shuffle-train-pmhc",
+        action="store_true",
+        help="Negative control: permute intact (peptide,HLA) units across training TCRs.",
+    )
     args = parser.parse_args()
 
     cfg = RunConfig(
@@ -852,6 +1009,7 @@ def main() -> None:
         partial_auc_max_fpr=args.partial_auc_max_fpr,
         save_latents=args.save_latents,
         overwrite=args.overwrite,
+        shuffle_train_pmhc=args.shuffle_train_pmhc,
     )
 
     set_seed(cfg.seed)
@@ -866,6 +1024,7 @@ def main() -> None:
     print(f"Checkpoint dir: {checkpoint_dir}", flush=True)
     print(f"Figure dir: {figure_dir}", flush=True)
     print(f"Scoring: score = -MSE distance; no cosine metrics", flush=True)
+    print(f"Shuffle train pMHC: {cfg.shuffle_train_pmhc}", flush=True)
     print("=" * 72, flush=True)
 
     with open(output_dir / "run_config.json", "w") as f:
@@ -880,6 +1039,10 @@ def main() -> None:
         immrep_meta, immrep_audit = load_meta(cfg.immrep_csv, "immrep_test", positives_only=False, missing_chain_policy=cfg.missing_chain_policy)
         audits.append(immrep_audit)
     pd.DataFrame(audits).to_csv(output_dir / "split_filter_audit.csv", index=False)
+
+    if cfg.shuffle_train_pmhc:
+        train_meta = shuffle_train_pmhc_assignments(train_meta, seed=cfg.seed)
+        train_meta.to_csv(output_dir / "train_meta_shuffled_pmhc.csv", index=False)
 
     L_T, L_P, L_H = compute_max_lengths(
         [train_meta, val_meta, test_meta] + ([] if immrep_meta is None else [immrep_meta]),

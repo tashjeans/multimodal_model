@@ -83,5 +83,11 @@ stitchr/
 logs/
 *.log
 
+# Archives of exported embeddings (too large for git)
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+
 # OS
 .DS_Store

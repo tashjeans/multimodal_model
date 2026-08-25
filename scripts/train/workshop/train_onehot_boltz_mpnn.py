@@ -399,8 +399,14 @@ def align_z_to_padded_layout(
     L_T: int,
     L_P: int,
     L_H: int,
+    cross_component_only: bool = False,
 ) -> torch.Tensor:
-    """Move raw [T,P,H] blocks into fixed padded [T|P|H] regions."""
+    """Move raw [T,P,H] blocks into fixed padded [T|P|H] regions.
+
+    When cross_component_only=True, same-component blocks (T-T, P-P, H-H) stay zero.
+    This is numerically identical to full alignment under graph_mode=cross because
+    those edges are masked out before message aggregation.
+    """
     if t_len > L_T or p_len > L_P or h_len > L_H:
         raise ValueError(
             f"sequence exceeds configured caps: actual={(t_len,p_len,h_len)} caps={(L_T,L_P,L_H)}"
@@ -423,17 +429,30 @@ def align_z_to_padded_layout(
         "P": slice(L_T, L_T + p_len),
         "H": slice(L_T + L_P, L_T + L_P + h_len),
     }
-    for receiver in ("T", "P", "H"):
-        for sender in ("T", "P", "H"):
-            copy_block(raw_z, out, raw[receiver], raw[sender], pad[receiver], pad[sender])
+    block_pairs = (
+        [("T", "P"), ("T", "H"), ("P", "T"), ("P", "H"), ("H", "T"), ("H", "P")]
+        if cross_component_only
+        else [(r, s) for r in ("T", "P", "H") for s in ("T", "P", "H")]
+    )
+    for receiver, sender in block_pairs:
+        copy_block(raw_z, out, raw[receiver], raw[sender], pad[receiver], pad[sender])
     return out
 
 
 class OneHotBoltzDataset(Dataset):
-    def __init__(self, meta: pd.DataFrame, L_T: int, L_P: int, L_H: int, source_name: str):
+    def __init__(
+        self,
+        meta: pd.DataFrame,
+        L_T: int,
+        L_P: int,
+        L_H: int,
+        source_name: str,
+        graph_mode: str = "cross",
+    ):
         self.meta = meta.reset_index(drop=True)
         self.L_T, self.L_P, self.L_H = int(L_T), int(L_P), int(L_H)
         self.source_name = source_name
+        self.cross_component_only = graph_mode == "cross"
 
     def __len__(self) -> int:
         return len(self.meta)
@@ -446,7 +465,9 @@ class OneHotBoltzDataset(Dataset):
         xP, mP = onehot_encode(row.Peptide_norm, self.L_P)
         xH, mH = onehot_encode(row.HLA_sequence_norm, self.L_H)
         raw_z = load_raw_z(Path(row.z_path))
-        z = align_z_to_padded_layout(raw_z, t_len, p_len, h_len, self.L_T, self.L_P, self.L_H)
+        z = align_z_to_padded_layout(
+            raw_z, t_len, p_len, h_len, self.L_T, self.L_P, self.L_H, self.cross_component_only
+        )
 
         return {
             "emb_T": xT, "mask_T": mT,
@@ -825,7 +846,7 @@ class RunConfig:
     max_test_rows: int = 0
     max_immrep_rows: int = 0
     max_steps_per_epoch: int = 0
-    log_every: int = 50
+    log_every: int = 0  # 0 = no per-step logs; only print the epoch summary line
 
     meta_cache_dir: str = "/home/natasha/multimodal_model/data/cache/onehot_boltz_mpnn"
     skip_z_audit: bool = False
@@ -833,7 +854,7 @@ class RunConfig:
     eval_splits: str = "val,test,immrep_test"
 
     cap_tcr: int = 300
-    cap_pep: int = 20
+    cap_pep: int = 0  # 0 = use observed max peptide length (train max is 24)
     cap_hla: int = 400
     d_hidden: int = 128
     component_dim: int = 8
@@ -876,10 +897,14 @@ def prepare_dirs(cfg: RunConfig) -> Tuple[Path, Path, Path]:
 
 def make_loader(ds: Dataset, cfg: RunConfig, shuffle: bool) -> DataLoader:
     generator = torch.Generator().manual_seed(cfg.seed) if shuffle else None
+    loader_kwargs = {}
+    if cfg.num_workers > 0:
+        loader_kwargs["prefetch_factor"] = 2
+        loader_kwargs["persistent_workers"] = True
     return DataLoader(
         ds, batch_size=cfg.batch_size, shuffle=shuffle, num_workers=cfg.num_workers,
         collate_fn=collate_rows, generator=generator, pin_memory=torch.cuda.is_available(),
-        persistent_workers=cfg.num_workers > 0,
+        **loader_kwargs,
     )
 
 
@@ -986,10 +1011,13 @@ def main() -> None:
     print("selection metric: val peptide_weighted_auc0.1_mcclish", flush=True)
 
     datasets = {
-        "train": OneHotBoltzDataset(train_meta, L_T, L_P, L_H, "train"),
-        "val": OneHotBoltzDataset(val_meta, L_T, L_P, L_H, "val"),
-        "test": OneHotBoltzDataset(test_meta, L_T, L_P, L_H, "test"),
-        "immrep_test": OneHotBoltzDataset(immrep_meta, L_T, L_P, L_H, "immrep_test"),
+        name: OneHotBoltzDataset(meta, L_T, L_P, L_H, name, cfg.graph_mode)
+        for name, meta in [
+            ("train", train_meta),
+            ("val", val_meta),
+            ("test", test_meta),
+            ("immrep_test", immrep_meta),
+        ]
     }
     loaders = {
         name: make_loader(ds, cfg, shuffle=(name == "train")) for name, ds in datasets.items()
